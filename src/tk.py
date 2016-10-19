@@ -10,7 +10,7 @@ except ImportError:
 try:
 	from TkFont import*
 except ImportError:
-	from tkinter import*
+	from tkinter import font as TkFont
 from threading import Thread
 import time
 import types
