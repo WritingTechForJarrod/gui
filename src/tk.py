@@ -3,8 +3,14 @@ Author:    max@embeddedprofessional.com
 '''
 from __future__ import print_function
 from __future__ import unicode_literals
-from Tkinter import *
-import tkFont
+try:
+	from Tkinter import *
+except ImportError:
+	from tkinter import *
+try:
+	from TkFont import*
+except ImportError:
+	from tkinter import*
 from threading import Thread
 import time
 import types
