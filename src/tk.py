@@ -3,15 +3,18 @@ Author:    max@embeddedprofessional.com
 '''
 from __future__ import print_function
 from __future__ import unicode_literals
+import sys
+
 try:
-	from Tkinter import *
-except ImportError:
-	from tkinter import *
-try:
-	from TkFont import*
-except ImportError:
-	from tkinter import font as TkFont
-from threading import Thread
+    assert sys.version_info[0] == 3
+except AssertionError as e:
+    print("Warning: Python 3 required but Python " + repr(sys.version_info[0]) +\
+        " found, please install or change sys path")
+    raise e
+
+from tkinter import *
+from threading import Thread, Lock
+from random import randint
 import time
 import types
 
@@ -21,7 +24,10 @@ class Application(Frame):
         self.is_alive = True
         self.screen_w = screen_size[0]
         self.screen_h = screen_size[1]
-        self.displayed_struct = None
+        self.drawables = []
+        self.mutex = Lock()
+        self.i = 0
+        self.inc_val = 10
         self.pack()
         self.createWidgets()
 
@@ -29,17 +35,22 @@ class Application(Frame):
         self.w.delete(ALL)
 
     def draw_periodic(self):
-        font = tkFont.Font(family='Helvetica',size=16, name="font16s")
-        i = 0
-        inc = 1
-        while self.is_alive:
-            if i < 0:
-                inc = 1
-            elif i == self.screen_w:
-                inc = -1
-            i += inc
-            self.w.create_rectangle(i, 0, self.screen_w, 50, fill='#ff0')
-            time.sleep(0.001)
+        #font = font(family='Helvetica',size=16, name="font16s")
+        #while self.is_alive:
+        if self.i < 0:
+            self.inc_val = -self.inc_val
+        elif self.i >= (self.screen_w - 200):
+            self.inc_val = -self.inc_val
+        self.i += self.inc_val
+        self.mutex.acquire()
+        if randint(0,1) > 0:
+            for drawable in self.drawables:
+                self.w.move(drawable, self.inc_val, 0)
+        else:
+            for drawable in self.drawables:
+                self.w.move(drawable, self.inc_val, 0)
+        self.mutex.release()
+        self.w.after(10, self.draw_periodic)
 
     def quit(self):
         self.is_alive = False
@@ -65,8 +76,15 @@ class Application(Frame):
 
         '''
         self.w = Canvas(self.master, width=self.screen_w, height=self.screen_h)
-        self.test_rec = self.w.create_rectangle(0, 0, self.screen_w, 50, fill='#ff0')
+        h = 10
+        w = 10
+        x = 0
+        y = 50
+        self.drawables.append(self.w.create_rectangle(x, y, x+w, y+h, fill='#ff0'))
+        y += 50
+        self.drawables.append(self.w.create_rectangle(x, y, x+w, y+h, fill='#ff0'))
         self.w.pack()
+        self.w.bind("<B1-Motion>", paint)
 
     def set_displayed(self, c_struct_name):
         self.displayed_struct = monitor.name_dict[c_struct_name]
@@ -76,6 +94,14 @@ class Application(Frame):
         go.start()
         Frame.mainloop(self)
         go.join()
+
+def paint(event):
+    python_green = "#476042"
+    x1, y1 = event.x - 10, event.y - 10
+    x2, y2 = event.x + 10, event.y + 10
+    app.mutex.acquire()
+    app.w.create_oval(x1, y1, x2, y2, fill = python_green)
+    app.mutex.release()
 
 root = Tk()
 app = Application(master=root, screen_size=(1080, 720))
