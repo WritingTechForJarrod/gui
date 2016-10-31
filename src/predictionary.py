@@ -3,7 +3,7 @@ class Node(dict):
 		self.frequency = 1
 		self.letter = letter
 		self.parent = parent
-		self.traversed = False
+		self.traversed = False # !!! this needs to be reset after repr called
 	def __repr__(self):
 		if self.parent is None:
 			return '[root]'

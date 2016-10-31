@@ -19,15 +19,16 @@ from math import atan2, pi
 from predictionary import Predictionary
 
 class Letter():
-    def __init__(self, char, handle, (x, y)):
+    def __init__(self, char, handle, pos):
         self.char = char
         self.handle = handle # ex: app.canvas.configure
-        self.position = (x, y)
+        self.position = (pos[0], pos[1])
 
 predict = Predictionary('sample_dict.txt')
-quit()
 
-def distance((x1,y1), (x2,y2)):
+def distance(pos1, pos2):
+    x1, y1 = pos1
+    x2, y2 = pos2
     return ((x1-x2)**2 + (y1-y2)**2)**0.5
 
 class Application(Frame):
@@ -41,6 +42,7 @@ class Application(Frame):
         self.letter_added = False
         self.last_letter = None
         self.last_char = None
+        self.last_index = 0
         self.last_mouse = (0,0)
         self.mutex = Lock()
         self.i = 0
@@ -59,16 +61,19 @@ class Application(Frame):
         freq_inc = (freq_inc + 1) % len(freq_keys)
         return char
 
-    def replace_letters(self):
-        for letter in self.letters:
+    def replace_letters(self, letter_indices):
+        for index in letter_indices:
+            letter = self.letters[index]
             letter.char = self.next()
             self.w.itemconfigure(letter.handle, text=letter.char)
+        if self.last_index in letter_indices:
+            self.last_index = 100 # !!! this is shitty, should set a None val for last index or smth
 
     def update_console(self,string):
         text = self.w.itemcget(self.console_text, 'text')
         if string == '-':
             freq_inc = 0
-            self.replace_letters()
+            self.replace_letters([0,1,2,3,4])
             text += ' '
         else: 
             text += self.last_char
@@ -84,17 +89,17 @@ class Application(Frame):
             position = letter.position
             if distance(self.last_mouse, position) < 100:
                 self.w.itemconfigure(letter.handle, fill='red')
-                if self.last_letter is not None:
-                    if self.last_letter is not letter:
-                        self.letters_hovered += 1
-                self.last_letter = letter
-                self.last_char = str(letter.char)
+                this_index = self.letters.index(letter)
+                if self.last_index != this_index:
+                    print(self.last_index, this_index)
+                    if self.last_index == 3 and this_index == 4:
+                        self.replace_letters([3,2,1,0])
+                    elif self.last_index == 1 and this_index == 0:
+                        self.replace_letters([1,2,3,4])
+                    self.last_index = int(this_index)
+                    self.last_char = str(letter.char)
             else:
                 self.w.itemconfigure(letter.handle, fill='black')
-                if self.letters_hovered >= len(self.letters):
-                    print('Adding new letters')
-                    self.letters_hovered = 0
-                    self.replace_letters()
 
         # draw angle of selector and mouse spotlight
         '''
@@ -123,7 +128,7 @@ class Application(Frame):
                 self.update_console(self.last_char)
                 freq_inc = 0
                 freq_keys = 'etao-inshrdlcumwfgypbvkjxqz'
-                self.replace_letters()
+                self.replace_letters([0,1,2,3,4])
                 self.letter_added = True
         else:
             self.letter_added = False
@@ -154,7 +159,8 @@ class Application(Frame):
         self.is_alive = False
         Frame.quit(self)
 
-    def add_letter(self, letter, (x, y)):
+    def add_letter(self, letter, pos):
+        x, y = pos
         handle = self.w.create_text(x, y, font=helv250, text=letter)
         new_letter = Letter(letter, handle, (x, y))
         self.letters.append(new_letter)
@@ -165,7 +171,7 @@ class Application(Frame):
         freq_inc = 0
         freq_keys = 'toawbcdsfmrhiyeglnpujkqzx'
         self.w.itemconfigure(self.console_text, text='')
-        self.replace_letters()
+        self.replace_letters([0,1,2,3,4])
 
     def createWidgets(self):
         global freq_inc
@@ -211,15 +217,10 @@ class Application(Frame):
         '''
         self.bar_selector = self.w.create_rectangle(0, h/2, w, h, fill='green')
         self.w.pack()
-        x1,x2,y1,y2 = w/6, 5*w/6, h/4, 3*h/4
-        x3 = 1*w/3
-        x4 = 2*w/3
-        self.add_letter('t', (x1,y1))
-        self.add_letter('o', (x3,y1))
-        self.add_letter('a', (x4,y1))
-        self.add_letter('w', (x2,y1))
-        self.add_letter('b', (w/2,y1))
-        freq_inc = 4
+        xvals = [w/10, 3*w/10, w/2, 7*w/10, 9*w/10,]
+        y1,y2 = h/4, 3*h/4
+        for x in xvals:
+            self.add_letter(self.next(), (x,y1))
         self.w.bind("<Motion>", on_mouse_move)
         self.w.bind("<ButtonPress-1>", on_left_click)
         self.w.bind("<ButtonPress-3>", on_right_click)
@@ -236,13 +237,7 @@ def on_mouse_move(event):
 def on_right_click(event):
     pass
 def on_left_click(event):
-    #python_green = "#476042"
-    #gimmicky AF
-    global freq_inc
-    app.mutex.acquire()
-    app.mutex.release()
-    freq_inc = (freq_inc + 1) % len(freq_keys)
-    #app.w.create_oval(x1, y1, x2, y2, fill = python_green)
+    pass
 
 root = Tk()
 helv50 = font.Font(family='Helvetica', size=50, weight='bold')
