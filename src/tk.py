@@ -91,7 +91,6 @@ class Application(Frame):
                 self.w.itemconfigure(letter.handle, fill='red')
                 this_index = self.letters.index(letter)
                 if self.last_index != this_index:
-                    print(self.last_index, this_index)
                     if self.last_index == 3 and this_index == 4:
                         self.replace_letters([3,2,1,0])
                     elif self.last_index == 1 and this_index == 0:
