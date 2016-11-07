@@ -24,7 +24,7 @@ class Drawable(object):
     def draw(self, canvas):
         raise NotImplementedError
 
-    def update(self, canvas, (x,y)):
+    def update(self, canvas, pos):
         raise NotImplementedError
 
     def delete(self, canvas):
@@ -45,8 +45,8 @@ class MouseLight(Drawable):
             self.position[0] + self.radius, self.position[1] + self.radius, 
             fill='blue')
 
-    def update(self, canvas, (x,y)):
-        self.position = (x,y)
+    def update(self, canvas, pos):
+        x,y = self.position = pos
         r = self.radius
         canvas.coords(self.handle, x-r, y-r, x+r, y+r)
         self.i += 1 if self.countup == True else -1
@@ -71,7 +71,8 @@ class FunctionBox(Drawable):
     def draw(self, canvas):
         self.handle = canvas.create_rectangle(self.x1,self.y1,self.x2,self.y2, fill=self.fill)
 
-    def update(self, canvas, (x,y)):
+    def update(self, canvas, pos):
+        x,y = pos
         if x > self.x1 and x < self.x2:
             if y > self.y1 and y < self.y2:
                 if self.selected == False:
@@ -97,7 +98,8 @@ class Text(Drawable):
             text=self.text, 
             font=self.font)
 
-    def update(self, canvas, (x,y)):
+    def update(self, canvas, pos):
+        x,y = pos
         canvas.itemconfigure(self.handle, text=self.text)
 
     def delete(self, canvas):
@@ -122,7 +124,8 @@ class Key(Text):
         super(Key, self).__init__(x,y, font, size)
         self.selected = False
 
-    def update(self, canvas, (x,y)):
+    def update(self, canvas, pos):
+        x,y = pos
         super(Key, self).update(canvas, (x,y))
         #app.console.clear()
         #app.console.write_line(str(self.x) + ' ' + str(self.y))
@@ -178,7 +181,8 @@ class OnscreenKeyboard(Drawable):
             key.draw(canvas)
             canvas.coords(key.handle, x,y)
 
-    def update(self, canvas, (x,y)):
+    def update(self, canvas, pos):
+        x,y = pos
         for key in self.keys: 
             key.update(canvas, (x,y))
             if key.selected == True:
@@ -188,19 +192,21 @@ class OnscreenKeyboard(Drawable):
                     if self._index_history[0] is not index:
                         self._index_history[1] = self._index_history[0]
                         self._index_history[0] = index
+                        '''
                         if index == (self.col*self.row) - 1:
                             print('Reached end of page')
                             self._at_end = True
                         elif index == 0 and self._at_end == True:
                             self.next_page()
                             self._at_end = False
+                        '''
                 else:
                     self._index_history.append(index)
                     self._index_history.append(index)
-            if key.text == self._last_selection and y > key.y:
-                canvas.coords(key.handle, key.x, y)
+            if key.text == self._last_selection and y < key.y:
+                canvas.coords(key.handle, x,y)
             else:
-                canvas.coords(key.handle, key.x, key.y)
+                canvas.coords(key.handle, key.x,key.y)
 
     def delete(self, canvas):
         for key in self.keys: key.delete(canvas)
@@ -226,9 +232,10 @@ class OnscreenKeyboard(Drawable):
         if self._last_selection == '.':
             app.console.clear()
 
-    def next_page(self):
-        print('Turning the page...')
-        self.page = self.page+1
+    def _change_page(self, page_inc):
+        self.page = self.page + page_inc
+        self._at_end = False
+        del self._index_history[:]
         i = self.page*self.col*self.row
         choices = self._predict.get_arrangement()
         i %= len(choices)
@@ -236,6 +243,14 @@ class OnscreenKeyboard(Drawable):
             key.clear()
             key.write(choices[i])
             i = (i+1) % len(choices)
+
+    def next_page(self):
+        print('Turning the page forward...')
+        self._change_page(1)
+
+    def prev_page(self):
+        print('Turning back the page...')
+        self._change_page(-1)
 
 def distance(pos1, pos2):
     x1, y1 = pos1
@@ -275,8 +290,10 @@ class Application(Frame):
         w,h = (self.screen_w, self.screen_h)
         
         self.drawables.append(MouseLight(100))
-        self.drawables.append(FunctionBox(w-h/4,0,w,h/4, self.quit, fill='red'))
-        self.drawables.append(FunctionBox(0,3*h/4,w,h, select_last_letter, fill='blue'))
+        self.drawables.append(FunctionBox(w-h/4,     0,    w, h/4, self.quit, fill='red'))
+        self.drawables.append(FunctionBox(    0, 3*h/4,  h/4,   h, kb.prev_page, fill='black'))
+        self.drawables.append(FunctionBox(w-h/4, 3*h/4,    w,   h, kb.next_page, fill='black'))
+        self.drawables.append(FunctionBox(    0,     0,w-w/4, h/4, select_last_letter, fill='yellow'))
         self.console = Text(0,0, console_font)
         self.drawables.append(self.console)
         kb.set_dimensions(0,h/4,w,4*h/8)
@@ -319,7 +336,7 @@ if __name__ == '__main__':
     area = w*h
     console_font = font.Font(family='Helvetica', size=settings.console_font_size, weight='bold')
     kb_font = font.Font(family='Helvetica', size=settings.kb_font_size, weight='bold')
-    kb = OnscreenKeyboard(kb_font, settings.kb_shape)
+    kb = OnscreenKeyboard(kb_font, settings.kb_shape, Predictionary(settings.dict_filename))
     app = Application(master=root, screen_size=(w, h))
     app.master.minsize(500, 500)
     app.mainloop()
