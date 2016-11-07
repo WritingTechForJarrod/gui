@@ -139,7 +139,8 @@ class Key(Text):
 
 class OnscreenKeyboard(Drawable):
     ''' Consists of a number of evenly spaced Text objects '''
-    def __init__(self, font, (row,col), predictionary=Predictionary('sample_dict.txt')):
+    def __init__(self, font, shape, predictionary=Predictionary('sample_dict.txt')):
+        row,col = shape
         if not isinstance(predictionary, Predictionary):
             print(str(type(predictionary)) + ' does not inherit from ' + str(Predictionary))
             print('Initialization of Keyboard failed, exiting')
@@ -324,7 +325,7 @@ def on_right_click(event):
 
 def on_left_click(event):
     print('Left click')
-    kb.larger()
+    kb.larger() 
 
 def select_last_letter():
     kb.process()
