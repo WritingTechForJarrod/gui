@@ -130,7 +130,7 @@ class Key(Text):
         #app.console.clear()
         #app.console.write_line(str(self.x) + ' ' + str(self.y))
         #app.console.write(str(x) + ' ' + str(y))
-        if distance((x,y), (self.x, self.y)) < 100:
+        if distance((x,y), (self.x, self.y)) < settings.letter_selection_radius:
             canvas.itemconfigure(self.handle, fill='red')
             self.selected = True
         else:
@@ -222,16 +222,19 @@ class OnscreenKeyboard(Drawable):
 
     def process(self):
         self.page = 0
-        self._predict.process(self._last_selection)
-        i = 0
-        choices = self._predict.get_arrangement()
-        for key in self.keys:
-            key.clear()
-            key.write(choices[i])
-            i += 1
-        app.console.write(self._last_selection)
-        if self._last_selection == '.':
-            app.console.clear()
+        if self._last_selection is not '':
+            self._predict.process(self._last_selection)
+            i = 0
+            choices = self._predict.get_arrangement()
+            for key in self.keys:
+                key.selected = False
+                key.clear()
+                key.write(choices[i])
+                i += 1
+            app.console.write(self._last_selection)
+            if self._last_selection == '.':
+                app.console.clear()
+            self._last_selection = ''
 
     def _change_page(self, page_inc):
         self.page = self.page + page_inc
@@ -268,6 +271,12 @@ class Application(Frame):
         self.screen_w = screen_size[0]
         self.screen_h = screen_size[1]
         self.last_mouse = (0,0)
+        self.last_eye = (0,0)
+        self.filter_1_old = (0,0)
+        self.filter_2_old = (0,0)
+        self.filter_3_old = (0,0)
+        self.filter_4_old = (0,0)
+        self.filter_5_old = (0,0)
         self.mutex = Lock()
         self.pack()
         self.createWidgets()
@@ -276,9 +285,10 @@ class Application(Frame):
         self.canvas.delete(ALL)
 
     def draw_periodic(self):
+        self.readEyeTrack('eyeStream.txt')
         self.mutex.acquire()
         for drawable in self.drawables:
-            drawable.update(self.canvas, self.last_mouse)
+            drawable.update(self.canvas, self.last_eye)
         self.mutex.release()
         self.canvas.after(10, self.draw_periodic)
 
@@ -291,10 +301,10 @@ class Application(Frame):
         w,h = (self.screen_w, self.screen_h)
         
         self.drawables.append(MouseLight(100))
-        self.drawables.append(FunctionBox(w-h/4,     0,    w, h/4, self.quit, fill='red'))
-        self.drawables.append(FunctionBox(    0, 3*h/4,  h/4,   h, kb.prev_page, fill='black'))
-        self.drawables.append(FunctionBox(w-h/4, 3*h/4,    w,   h, kb.next_page, fill='black'))
-        self.drawables.append(FunctionBox(    0,     0,w-w/4, h/4, select_last_letter, fill='yellow'))
+        self.drawables.append(FunctionBox(w-h/4,     0,    w, h/5, self.quit, fill='red'))
+        self.drawables.append(FunctionBox(    0, 4*h/5,  h/4,   h, kb.prev_page, fill='black'))
+        self.drawables.append(FunctionBox(w-h/4, 4*h/5,    w,   h, kb.next_page, fill='black'))
+        self.drawables.append(FunctionBox(    0,     0,  h/4, h/5, select_last_letter, fill='yellow'))
         self.console = Text(0,0, console_font)
         self.drawables.append(self.console)
         kb.set_dimensions(0,h/4,w,4*h/8)
@@ -315,6 +325,26 @@ class Application(Frame):
         go.start()
         Frame.mainloop(self)
         go.join()
+
+    def readEyeTrack(self, fileName):
+        self.filter_5_old = self.filter_4_old
+        self.filter_4_old = self.filter_3_old
+        self.filter_3_old = self.filter_2_old
+        self.filter_2_old = self.filter_1_old
+        with open(fileName,'r') as f:
+            try:
+                contents = f.readline()
+                x_y = contents.split(',')
+                eye_x = int(float(x_y[0]))
+                eye_y = int(float(x_y[1]))
+                self.filter_1_old = (eye_x,eye_y)
+                filter_value = ((self.filter_1_old[0]+self.filter_2_old[0]+self.filter_3_old[0]+self.filter_4_old[0]+self.filter_5_old[0])/5,(self.filter_1_old[1]+self.filter_2_old[1]+self.filter_3_old[1]+self.filter_4_old[1]+self.filter_5_old[1])/5)
+                #self.last_eye = (eye_x/1.5, eye_y/1.5)
+                self.last_eye = (filter_value[0]/1.5, filter_value[1]/1.5)
+                #debug_file.write((str(eye_x) + "," + str(eye_y)) + "\n")
+                print(str(filter_value) + "," + str(self.filter_1_old) + "," + str(self.filter_2_old) + "," + str(self.filter_3_old))
+            except ValueError:
+                pass
 
 def on_mouse_move(event):
     app.last_mouse = (event.x, event.y)
