@@ -17,6 +17,7 @@ import time
 import types
 from math import atan2, pi
 from predictionary import Predictionary
+from filters import MovingAverage
 import settings # user settings
 
 class Drawable(object):
@@ -272,6 +273,7 @@ class Application(Frame):
         self.screen_h = screen_size[1]
         self.last_mouse = (0,0)
         self.last_eye = (0,0)
+        self.filter_type = MovingAverage(5)
         self.filter_1_old = (0,0)
         self.filter_2_old = (0,0)
         self.filter_3_old = (0,0)
@@ -340,9 +342,10 @@ class Application(Frame):
                 self.filter_1_old = (eye_x,eye_y)
                 filter_value = ((self.filter_1_old[0]+self.filter_2_old[0]+self.filter_3_old[0]+self.filter_4_old[0]+self.filter_5_old[0])/5,(self.filter_1_old[1]+self.filter_2_old[1]+self.filter_3_old[1]+self.filter_4_old[1]+self.filter_5_old[1])/5)
                 #self.last_eye = (eye_x/1.5, eye_y/1.5)
-                self.last_eye = (filter_value[0]/1.5, filter_value[1]/1.5)
-                #debug_file.write((str(eye_x) + "," + str(eye_y)) + "\n")
-                print(str(filter_value) + "," + str(self.filter_1_old) + "," + str(self.filter_2_old) + "," + str(self.filter_3_old))
+                #self.last_eye = (filter_value[0]/1.5, filter_value[1]/1.5)
+                self.filter_type.calculate_average(eye_x, eye_y)
+                self.last_eye = (self.filter_type.filtered_x/1.5, self.filter_type.filtered_y/1.5)
+                #print(str(filter_value) + "," + str(self.filter_1_old) + "," + str(self.filter_2_old) + "," + str(self.filter_3_old))
             except ValueError:
                 pass
 
