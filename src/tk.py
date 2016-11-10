@@ -330,7 +330,6 @@ class Application(Frame):
                 x_y = contents.split(',')
                 eye_x = int(float(x_y[0]))
                 eye_y = int(float(x_y[1]))
-                self.filter_1_old = (eye_x,eye_y)
                 self.filter_type.calculate_average(eye_x, eye_y)
                 self.last_eye = (self.filter_type.filtered_x, self.filter_type.filtered_y)
             except ValueError:
