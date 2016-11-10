@@ -273,12 +273,7 @@ class Application(Frame):
         self.screen_h = screen_size[1]
         self.last_mouse = (0,0)
         self.last_eye = (0,0)
-        self.filter_type = MovingAverage(5)
-        self.filter_1_old = (0,0)
-        self.filter_2_old = (0,0)
-        self.filter_3_old = (0,0)
-        self.filter_4_old = (0,0)
-        self.filter_5_old = (0,0)
+        self.filter_type = MovingAverage(20)
         self.mutex = Lock()
         self.pack()
         self.createWidgets()
@@ -292,7 +287,7 @@ class Application(Frame):
         for drawable in self.drawables:
             drawable.update(self.canvas, self.last_eye)
         self.mutex.release()
-        self.canvas.after(10, self.draw_periodic)
+        self.canvas.after(1, self.draw_periodic)
 
     def quit(self):
         self.is_alive = False
@@ -329,10 +324,6 @@ class Application(Frame):
         go.join()
 
     def readEyeTrack(self, fileName):
-        self.filter_5_old = self.filter_4_old
-        self.filter_4_old = self.filter_3_old
-        self.filter_3_old = self.filter_2_old
-        self.filter_2_old = self.filter_1_old
         with open(fileName,'r') as f:
             try:
                 contents = f.readline()
@@ -340,12 +331,8 @@ class Application(Frame):
                 eye_x = int(float(x_y[0]))
                 eye_y = int(float(x_y[1]))
                 self.filter_1_old = (eye_x,eye_y)
-                filter_value = ((self.filter_1_old[0]+self.filter_2_old[0]+self.filter_3_old[0]+self.filter_4_old[0]+self.filter_5_old[0])/5,(self.filter_1_old[1]+self.filter_2_old[1]+self.filter_3_old[1]+self.filter_4_old[1]+self.filter_5_old[1])/5)
-                #self.last_eye = (eye_x/1.5, eye_y/1.5)
-                #self.last_eye = (filter_value[0]/1.5, filter_value[1]/1.5)
                 self.filter_type.calculate_average(eye_x, eye_y)
-                self.last_eye = (self.filter_type.filtered_x/1.5, self.filter_type.filtered_y/1.5)
-                #print(str(filter_value) + "," + str(self.filter_1_old) + "," + str(self.filter_2_old) + "," + str(self.filter_3_old))
+                self.last_eye = (self.filter_type.filtered_x, self.filter_type.filtered_y)
             except ValueError:
                 pass
 
