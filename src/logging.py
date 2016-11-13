@@ -18,7 +18,7 @@ import types
 from math import atan2, pi
 from predictionary import Predictionary
 from filters import MovingAverage
-import settings # user settings
+import vision_test_settings # user settings
 
 class Drawable(object):
     ''' Interface for objects that can be drawn on a tkinter Canvas '''
@@ -131,7 +131,7 @@ class Key(Text):
         #app.console.clear()
         #app.console.write_line(str(self.x) + ' ' + str(self.y))
         #app.console.write(str(x) + ' ' + str(y))
-        if distance((x,y), (self.x, self.y)) < settings.letter_selection_radius:
+        if distance((x,y), (self.x, self.y)) < vision_test_settings.letter_selection_radius:
             canvas.itemconfigure(self.handle, fill='red')
             self.selected = True
         else:
@@ -159,7 +159,7 @@ class OnscreenKeyboard(Drawable):
         for x in xrange(0, self.row*self.col):
             key = Key(0,0, self.font)
             key.write(self._predict.get_arrangement()[i])
-            i += 1
+            i += 2
             self.keys.append(key)
 
     def set_rows_and_cols(self, row, col):
@@ -273,7 +273,7 @@ class Application(Frame):
         self.screen_h = screen_size[1]
         self.last_mouse = (0,0)
         self.last_eye = (0,0)
-        self.filter_type = MovingAverage(20)
+        self.filter_type = MovingAverage(vision_test_settings.filter_window_size)
         self.mutex = Lock()
         self.pack()
         self.createWidgets()
@@ -282,12 +282,16 @@ class Application(Frame):
         self.canvas.delete(ALL)
 
     def draw_periodic(self):
-        self.readEyeTrack('eyeStream.txt')
-        log.write(str(self.last_mouse[0]) + "," + str(self.last_mouse[1]) + "\n")
+        
+        if (vision_test_settings.keep_coordinates_log == 1):
+        	coordinates_log.write(str(self.last_mouse[0]) + "," + str(self.last_mouse[1]) + "\n")
         self.mutex.acquire()
         for drawable in self.drawables:
-            #drawable.update(self.canvas, self.last_eye)
-            drawable.update(self.canvas, self.last_mouse) # mouse movement enabled for testing
+        	if (vision_test_settings.input_device == 0): # mouse input
+        		drawable.update(self.canvas, self.last_mouse)
+        	elif (vision_test_settings.input_device == 1): # eye tracker input
+        		self.readEyeTrack('eyeStream.txt')
+        		drawable.update(self.canvas, self.last_eye)
         self.mutex.release()
         self.canvas.after(1, self.draw_periodic)
 
@@ -298,12 +302,12 @@ class Application(Frame):
     def createWidgets(self):
         self.canvas = Canvas(self.master, width=self.screen_w, height=self.screen_h)
         w,h = (self.screen_w, self.screen_h)
-        
         self.drawables.append(MouseLight(100))
-        self.drawables.append(FunctionBox(w-h/4,     0,    w, h/5, self.quit, fill='red'))
-        self.drawables.append(FunctionBox(    0, 4*h/5,  h/4,   h, kb.prev_page, fill='black'))
-        self.drawables.append(FunctionBox(w-h/4, 4*h/5,    w,   h, kb.next_page, fill='black'))
-        self.drawables.append(FunctionBox(    0,     0,  h/4, h/5, select_last_letter, fill='yellow'))
+        if (vision_test_settings.dynamic_screen == 1):
+	        self.drawables.append(FunctionBox(w-h/4,     0,    w, h/5, self.quit, fill='red'))
+	        self.drawables.append(FunctionBox(    0, 4*h/5,  h/4,   h, kb.prev_page, fill='black'))
+	        self.drawables.append(FunctionBox(w-h/4, 4*h/5,    w,   h, kb.next_page, fill='black'))
+	        self.drawables.append(FunctionBox(    0,     0,  h/4, h/5, select_last_letter, fill='yellow'))
         self.console = Text(0,0, console_font)
         self.drawables.append(self.console)
         kb.set_dimensions(0,h/4,w,4*h/8)
@@ -341,8 +345,11 @@ def on_mouse_move(event):
     app.last_mouse = (event.x, event.y)
 
 def on_right_click(event):
-    print('Right click')
-    kb.smaller()
+	if (vision_test_settings.dynamic_screen == 1):
+		print('Right click')
+		kb.smaller()
+	else:
+		quit()
 
 def on_left_click(event):
     print('Left click')
@@ -356,10 +363,11 @@ if __name__ == '__main__':
     root.attributes("-fullscreen", True)
     w,h = (root.winfo_screenwidth(), root.winfo_screenheight())
     area = w*h
-    console_font = font.Font(family='Helvetica', size=settings.console_font_size, weight='bold')
-    kb_font = font.Font(family='Helvetica', size=settings.kb_font_size, weight='bold')
-    kb = OnscreenKeyboard(kb_font, settings.kb_shape, Predictionary(settings.dict_filename))
-    log = open('eye_coordinates.txt', 'w')
+    console_font = font.Font(family='Helvetica', size=vision_test_settings.console_font_size, weight='bold')
+    kb_font = font.Font(family='Helvetica', size=vision_test_settings.kb_font_size, weight='bold')
+    kb = OnscreenKeyboard(kb_font, vision_test_settings.kb_shape, Predictionary(vision_test_settings.dict_filename))
+    if (vision_test_settings.keep_coordinates_log == 1):
+    	coordinates_log = open(vision_test_settings.log_name, 'w')
     app = Application(master=root, screen_size=(w, h))
     app.master.minsize(500, 500)
     app.mainloop()
