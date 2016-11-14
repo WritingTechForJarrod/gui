@@ -284,7 +284,10 @@ class Application(Frame):
     def draw_periodic(self):
         
         if (vision_test_settings.keep_coordinates_log == 1):
-        	coordinates_log.write(str(self.last_mouse[0]) + "," + str(self.last_mouse[1]) + "\n")
+        	if (vision_test_settings.input_device == 0):
+        		coordinates_log.write(str(self.last_mouse[0]) + "," + str(self.last_mouse[1]) + "\n")
+        	else:
+        		coordinates_log.write(str(self.last_eye[0]) + "," + str(self.last_eye[1]) + "\n")
         self.mutex.acquire()
         for drawable in self.drawables:
         	if (vision_test_settings.input_device == 0): # mouse input
@@ -334,8 +337,8 @@ class Application(Frame):
             try:
                 contents = f.readline()
                 x_y = contents.split(',')
-                eye_x = int(float(x_y[0]))
-                eye_y = int(float(x_y[1]))
+                eye_x = int(float(x_y[0])/1.5)
+                eye_y = int(float(x_y[1])/1.5)
                 self.filter_type.calculate_average(eye_x, eye_y)
                 self.last_eye = (self.filter_type.filtered_x, self.filter_type.filtered_y)
             except ValueError:
