@@ -289,7 +289,7 @@ class Application(Frame):
             points = line.split(",")
             if (points[0] == ''):
                 quit()
-            last_point = (int(points[0]),int(points[1]))
+            last_point = (int(float(points[0])),int(float(points[1])))
             drawable.update(self.canvas, last_point)
         self.mutex.release()
         self.canvas.after(5, self.draw_periodic) # slowed down to visualize inputs
