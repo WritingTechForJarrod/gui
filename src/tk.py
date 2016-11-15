@@ -273,7 +273,7 @@ class Application(Frame):
         self.screen_h = screen_size[1]
         self.last_mouse = (0,0)
         self.last_eye = (0,0)
-        self.filter_type = MovingAverage(20)
+        self.filter_type = MovingAverage(settings.filter_window_size)
         self.mutex = Lock()
         self.pack()
         self.createWidgets()
@@ -282,10 +282,18 @@ class Application(Frame):
         self.canvas.delete(ALL)
 
     def draw_periodic(self):
-        self.readEyeTrack('eyeStream.txt')
+        if (settings.keep_coordinates_log == 1):
+            if (settings.input_device == 0):
+                coordinates_log.write(str(self.last_mouse[0]) + "," + str(self.last_mouse[1]) + "\n")
+            else:
+                coordinates_log.write(str(self.last_eye[0]) + "," + str(self.last_eye[1]) + "\n")
         self.mutex.acquire()
         for drawable in self.drawables:
-            drawable.update(self.canvas, self.last_eye)
+            if (settings.input_device == 0): # mouse input
+                drawable.update(self.canvas, self.last_mouse)
+            else: # eye tracker input
+                self.readEyeTrack('eyeStream.txt')
+                drawable.update(self.canvas, self.last_eye)
         self.mutex.release()
         self.canvas.after(1, self.draw_periodic)
 
@@ -298,10 +306,11 @@ class Application(Frame):
         w,h = (self.screen_w, self.screen_h)
         
         self.drawables.append(MouseLight(100))
-        self.drawables.append(FunctionBox(w-h/4,     0,    w, h/5, self.quit, fill='red'))
-        self.drawables.append(FunctionBox(    0, 4*h/5,  h/4,   h, kb.prev_page, fill='black'))
-        self.drawables.append(FunctionBox(w-h/4, 4*h/5,    w,   h, kb.next_page, fill='black'))
-        self.drawables.append(FunctionBox(    0,     0,  h/4, h/5, select_last_letter, fill='yellow'))
+        if (settings.dynamic_screen == 1):
+            self.drawables.append(FunctionBox(w-h/4,     0,    w, h/5, self.quit, fill='red'))
+            self.drawables.append(FunctionBox(    0, 4*h/5,  h/4,   h, kb.prev_page, fill='black'))
+            self.drawables.append(FunctionBox(w-h/4, 4*h/5,    w,   h, kb.next_page, fill='black'))
+            self.drawables.append(FunctionBox(    0,     0,  h/4, h/5, select_last_letter, fill='yellow'))
         self.console = Text(0,0, console_font)
         self.drawables.append(self.console)
         kb.set_dimensions(0,h/4,w,4*h/8)
@@ -328,8 +337,8 @@ class Application(Frame):
             try:
                 contents = f.readline()
                 x_y = contents.split(',')
-                eye_x = int(float(x_y[0]))
-                eye_y = int(float(x_y[1]))
+                eye_x = int(float(x_y[0])/1.5)
+                eye_y = int(float(x_y[1])/1.5)
                 self.filter_type.calculate_average(eye_x, eye_y)
                 self.last_eye = (self.filter_type.filtered_x, self.filter_type.filtered_y)
             except ValueError:
@@ -339,8 +348,11 @@ def on_mouse_move(event):
     app.last_mouse = (event.x, event.y)
 
 def on_right_click(event):
-    print('Right click')
-    kb.smaller()
+    if (settings.dynamic_screen == 1):
+        print('Right click')
+        kb.smaller()
+    else:
+        quit()
 
 def on_left_click(event):
     print('Left click')
@@ -353,11 +365,14 @@ if __name__ == '__main__':
     root = Tk()
     root.attributes("-fullscreen", True)
     w,h = (root.winfo_screenwidth(), root.winfo_screenheight())
+    print(w, h)
     area = w*h
     console_font = font.Font(family='Helvetica', size=settings.console_font_size, weight='bold')
     kb_font = font.Font(family='Helvetica', size=settings.kb_font_size, weight='bold')
     kb = OnscreenKeyboard(kb_font, settings.kb_shape, Predictionary(settings.dict_filename))
-    app = Application(master=root, screen_size=(w, h))
+    if (settings.keep_coordinates_log == 1):
+        coordinates_log = open(settings.log_name, 'w')
+    app = Application(master=root, screen_size=(w,h))
     app.master.minsize(500, 500)
     app.mainloop()
     app.quit()
