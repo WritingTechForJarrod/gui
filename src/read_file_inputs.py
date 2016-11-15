@@ -18,7 +18,7 @@ import types
 from math import atan2, pi
 from predictionary import Predictionary
 from filters import MovingAverage
-import vision_test_settings # user settings
+import settings # user settings
 
 class Drawable(object):
     ''' Interface for objects that can be drawn on a tkinter Canvas '''
@@ -131,7 +131,7 @@ class Key(Text):
         #app.console.clear()
         #app.console.write_line(str(self.x) + ' ' + str(self.y))
         #app.console.write(str(x) + ' ' + str(y))
-        if distance((x,y), (self.x, self.y)) < vision_test_settings.letter_selection_radius:
+        if distance((x,y), (self.x, self.y)) < settings.letter_selection_radius:
             canvas.itemconfigure(self.handle, fill='red')
             self.selected = True
         else:
@@ -303,7 +303,7 @@ class Application(Frame):
         w,h = (self.screen_w, self.screen_h)
         
         self.drawables.append(MouseLight(100))
-        if (vision_test_settings.dynamic_screen == 1):
+        if (settings.dynamic_screen == 1):
             self.drawables.append(FunctionBox(w-h/4,     0,    w, h/5, self.quit, fill='red'))
             self.drawables.append(FunctionBox(    0, 4*h/5,  h/4,   h, kb.prev_page, fill='black'))
             self.drawables.append(FunctionBox(w-h/4, 4*h/5,    w,   h, kb.next_page, fill='black'))
@@ -361,9 +361,9 @@ if __name__ == '__main__':
     root.attributes("-fullscreen", True)
     w,h = (root.winfo_screenwidth(), root.winfo_screenheight())
     area = w*h
-    console_font = font.Font(family='Helvetica', size=vision_test_settings.console_font_size, weight='bold')
-    kb_font = font.Font(family='Helvetica', size=vision_test_settings.kb_font_size, weight='bold')
-    kb = OnscreenKeyboard(kb_font, vision_test_settings.kb_shape, Predictionary(vision_test_settings.dict_filename))
+    console_font = font.Font(family='Helvetica', size=settings.console_font_size, weight='bold')
+    kb_font = font.Font(family='Helvetica', size=settings.kb_font_size, weight='bold')
+    kb = OnscreenKeyboard(kb_font, settings.kb_shape, Predictionary(settings.dict_filename))
     app = Application(master=root, screen_size=(w, h))
     app.master.minsize(500, 500)
     app.mainloop()
