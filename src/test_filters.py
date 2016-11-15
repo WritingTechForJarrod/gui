@@ -17,9 +17,6 @@ import time
 import types
 from math import atan2, pi
 from predictionary import Predictionary
-from filters import MovingAverage
-from exp_filters import ExponentialAverage
-import numpy
 import settings # user settings
 
 class Drawable(object):
@@ -264,6 +261,8 @@ def distance(pos1, pos2):
     x2, y2 = pos2
     return ((x1-x2)**2 + (y1-y2)**2)**0.5
 
+
+
 class Application(Frame):
     def __init__(self, master=None, screen_size=(1080, 720)):
         # Create lists of drawable objects in app
@@ -275,8 +274,11 @@ class Application(Frame):
         self.screen_h = screen_size[1]
         self.last_mouse = (0,0)
         self.last_eye = (0,0)
-        self.filter_type = MovingAverage(20)
-        self.filter_exp = ExponentialAverage(20)
+        self.filter_1_old = (0,0)
+        self.filter_2_old = (0,0)
+        self.filter_3_old = (0,0)
+        self.filter_4_old = (0,0)
+        self.filter_5_old = (0,0)
         self.mutex = Lock()
         self.pack()
         self.createWidgets()
@@ -290,7 +292,7 @@ class Application(Frame):
         for drawable in self.drawables:
             drawable.update(self.canvas, self.last_eye)
         self.mutex.release()
-        self.canvas.after(1, self.draw_periodic)
+        self.canvas.after(10, self.draw_periodic)
 
     def quit(self):
         self.is_alive = False
@@ -327,34 +329,21 @@ class Application(Frame):
         go.join()
 
     def readEyeTrack(self, fileName):
-        f_1 = open ('original_data','w')
-        f_2 = open ('simple_mav','w')
-        f_3 = open ('exp_mav','w')
-
         with open(fileName,'r') as f:
             try:
                 contents = f.readline()
                 x_y = contents.split(',')
                 eye_x = int(float(x_y[0]))
                 eye_y = int(float(x_y[1]))
-                self.filter_type.calculate_average(eye_x, eye_y)
-
-##                self.last_eye = (self.filter_type.filtered_x, self.filter_type.filtered_y)
-                self.filter_exp.calculate_average(eye_x, eye_y)
-                self.last_eye = (self.filter_exp.filterd_x, self.filter_exp.filterd_y)
-                f_1.write(str(eye_x)+' '+str(eye_y))
-                f_2.write(str(self.filter_type.filtered_x)+' '+str(filter_type.filtered_y))
-                f_3.write(str(filter_exp.filterd_x)+' '+str(filter_exp.filterd_y))
-                
-
-
-               
+                self.filter_1_old = (eye_x,eye_y)
+                filter_value = ((self.filter_1_old[0]+self.filter_2_old[0]+self.filter_3_old[0]+self.filter_4_old[0]+self.filter_5_old[0])/5,(self.filter_1_old[1]+self.filter_2_old[1]+self.filter_3_old[1]+self.filter_4_old[1]+self.filter_5_old[1])/5)
+                #self.last_eye = (eye_x/1.5, eye_y/1.5)
+                self.last_eye = (filter_value[0]/1.5, filter_value[1]/1.5)
+                #debug_file.write((str(eye_x) + "," + str(eye_y)) + "\n")
+                print(str(filter_value) + "," + str(self.filter_1_old) + "," + str(self.filter_2_old) + "," + str(self.filter_3_old))
             except ValueError:
                 pass
-        f_1.close()
-        f_2.close()
-        f_3.close()
-        
+
 def on_mouse_move(event):
     app.last_mouse = (event.x, event.y)
 

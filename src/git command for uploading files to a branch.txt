@@ -1,0 +1,141 @@
+Last login: Thu Nov 10 12:37:39 on ttys000
+dhcp-20-c9-d0-7e-18-b7:~ murrayjiang$ git
+usage: git [--version] [--help] [-C <path>] [-c name=value]
+           [--exec-path[=<path>]] [--html-path] [--man-path] [--info-path]
+           [-p | --paginate | --no-pager] [--no-replace-objects] [--bare]
+           [--git-dir=<path>] [--work-tree=<path>] [--namespace=<name>]
+           <command> [<args>]
+
+These are common Git commands used in various situations:
+
+start a working area (see also: git help tutorial)
+   clone      Clone a repository into a new directory
+   init       Create an empty Git repository or reinitialize an existing one
+
+work on the current change (see also: git help everyday)
+   add        Add file contents to the index
+   mv         Move or rename a file, a directory, or a symlink
+   reset      Reset current HEAD to the specified state
+   rm         Remove files from the working tree and from the index
+
+examine the history and state (see also: git help revisions)
+   bisect     Find by binary search the change that introduced a bug
+   grep       Print lines matching a pattern
+   log        Show commit logs
+   show       Show various types of objects
+   status     Show the working tree status
+
+grow, mark and tweak your common history
+   branch     List, create, or delete branches
+   checkout   Switch branches or restore working tree files
+   commit     Record changes to the repository
+   diff       Show changes between commits, commit and working tree, etc
+   merge      Join two or more development histories together
+   rebase     Forward-port local commits to the updated upstream head
+   tag        Create, list, delete or verify a tag object signed with GPG
+
+collaborate (see also: git help workflows)
+   fetch      Download objects and refs from another repository
+   pull       Fetch from and integrate with another repository or a local branch
+   push       Update remote refs along with associated objects
+
+'git help -a' and 'git help -g' list available subcommands and some
+concept guides. See 'git help <command>' or 'git help <concept>'
+to read about a specific subcommand or concept.
+dhcp-20-c9-d0-7e-18-b7:~ murrayjiang$ pwd
+/Users/murrayjiang
+dhcp-20-c9-d0-7e-18-b7:~ murrayjiang$ cd 
+dhcp-20-c9-d0-7e-18-b7:~ murrayjiang$ cd desktop
+dhcp-20-c9-d0-7e-18-b7:desktop murrayjiang$ ls
+14329340_1263508343680761_151742966_o.jpg
+391
+AW
+Capstone resouces 
+Deck
+DrJava.app
+Jarrod
+LemonSubmit
+Presentation.m4a
+Terminal.app
+WritingTechForJarrod
+bit_count.sv
+eclipse
+fwdlocationcache
+helloworld
+javascript-and-jquery-book-code-0915
+sleeping_with_totoro_by_adrixgc-d4rfmyj.jpg
+dhcp-20-c9-d0-7e-18-b7:desktop murrayjiang$ pwd
+/Users/murrayjiang/desktop
+dhcp-20-c9-d0-7e-18-b7:desktop murrayjiang$ ls
+14329340_1263508343680761_151742966_o.jpg
+391
+AW
+Capstone resouces 
+Deck
+DrJava.app
+Jarrod
+LemonSubmit
+Presentation.m4a
+Terminal.app
+WritingTechForJarrod
+bit_count.sv
+eclipse
+fwdlocationcache
+helloworld
+javascript-and-jquery-book-code-0915
+sleeping_with_totoro_by_adrixgc-d4rfmyj.jpg
+dhcp-20-c9-d0-7e-18-b7:desktop murrayjiang$ cd Jarrod
+dhcp-20-c9-d0-7e-18-b7:Jarrod murrayjiang$ cd ..
+dhcp-20-c9-d0-7e-18-b7:desktop murrayjiang$ cd WritingTechForJarrod/gui
+-bash: cd: WritingTechForJarrod/gui: No such file or directory
+dhcp-20-c9-d0-7e-18-b7:desktop murrayjiang$ cd Wri
+-bash: cd: Wri: No such file or directory
+dhcp-20-c9-d0-7e-18-b7:desktop murrayjiang$ cd WritingTechForJarrod/
+dhcp-20-c9-d0-7e-18-b7:WritingTechForJarrod murrayjiang$ ls
+LICENSE		readme.md	src
+dhcp-20-c9-d0-7e-18-b7:WritingTechForJarrod murrayjiang$ src
+-bash: src: command not found
+dhcp-20-c9-d0-7e-18-b7:WritingTechForJarrod murrayjiang$ cd src
+dhcp-20-c9-d0-7e-18-b7:src murrayjiang$ ls
+MinimalGazeDataStream.c	read_file_inputs.py	tk.py
+childrens_book.txt	sample_dict.txt		vision_test_settings.py
+filters.py		settings.py		wordsEn.txt
+logging.py		test_dict.txt
+predictionary.py	test_filters.py
+dhcp-20-c9-d0-7e-18-b7:src murrayjiang$ cd gui
+-bash: cd: gui: No such file or directory
+dhcp-20-c9-d0-7e-18-b7:src murrayjiang$ git status
+On branch alexb
+Your branch is up-to-date with 'origin/alexb'.
+nothing to commit, working directory clean
+dhcp-20-c9-d0-7e-18-b7:src murrayjiang$ git add exp_filter.py
+fatal: pathspec 'exp_filter.py' did not match any files
+dhcp-20-c9-d0-7e-18-b7:src murrayjiang$ git add exp_filters.py 
+dhcp-20-c9-d0-7e-18-b7:src murrayjiang$ git commit -am "Exponential filter added"
+[alexb 2260575] Exponential filter added
+ Committer: Harvey1973 <murrayjiang@dhcp-20-c9-d0-7e-18-b7.ubcvisitor.wifi.ubc.ca>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name "Your Name"
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 1 file changed, 66 insertions(+)
+ create mode 100644 src/exp_filters.py
+dhcp-20-c9-d0-7e-18-b7:src murrayjiang$ git push origin alexb
+
+Counting objects: 4, done.
+Delta compression using up to 4 threads.
+Compressing objects: 100% (4/4), done.
+Writing objects: 100% (4/4), 902 bytes | 0 bytes/s, done.
+Total 4 (delta 2), reused 0 (delta 0)
+remote: Resolving deltas: 100% (2/2), completed with 2 local objects.
+To https://github.com/WritingTechForJarrod/gui.git
+   83e9450..2260575  alexb -> alexb
+dhcp-20-c9-d0-7e-18-b7:src murrayjiang$ 
+dhcp-20-c9-d0-7e-18-b7:src murrayjiang$ 
