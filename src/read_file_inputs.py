@@ -289,7 +289,7 @@ class Application(Frame):
             points = line.split(",")
             if (points[0] == ''):
                 quit()
-            last_point = (int(float(points[0])),int(float(points[1])))
+            last_point = (int(float(points[0])/1.5),int(float(points[1])/1.5))
             drawable.update(self.canvas, last_point)
         self.mutex.release()
         self.canvas.after(5, self.draw_periodic) # slowed down to visualize inputs
@@ -356,7 +356,7 @@ def select_last_letter():
     kb.process()
 
 if __name__ == '__main__':
-    log = open('eye_coordinates.txt', 'r')
+    log = open('../../eyeCoordinatesLog1.txt', 'r')
     root = Tk()
     root.attributes("-fullscreen", True)
     w,h = (root.winfo_screenwidth(), root.winfo_screenheight())
