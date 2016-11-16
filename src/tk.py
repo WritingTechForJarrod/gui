@@ -55,11 +55,7 @@ class MouseLight(Drawable):
             self.countup = False
         elif self.i == 0:
             self.countup = True
-
-        hex_val1 = '0x{:02x}'.format(self.i).replace('0x', '')
-        hex_val2 = '0x{:02x}'.format(255-self.i).replace('0x', '')
-        color_string = '#00' + hex_val1 + hex_val2
-        canvas.itemconfigure(self.handle, fill=color_string)
+        canvas.itemconfigure(self.handle, fill=make_color(0,self.i,255-self.i))
 
 class FunctionBox(Drawable):
     ''' Box executes a function when moused over '''
@@ -138,6 +134,32 @@ class Key(Text):
             canvas.itemconfigure(self.handle, fill='black')
             self.selected = False
 
+class Key2(Text):
+    ''' Dynamic OnscreenKeyboard key '''
+    def __init__(self, x,y, font, size=5):
+        super(Key2, self).__init__(x,y, font, size)
+        self.selected = False
+        self.selection_score = 0
+        self.selection_threshold = settings.selection_delay
+
+    def update(self, canvas, pos):
+        x,y = pos
+        super(Key2, self).update(canvas, (x,y))
+        #app.console.clear()
+        #app.console.write_line(str(self.x) + ' ' + str(self.y))
+        #app.console.write(str(x) + ' ' + str(y))
+        if distance((x,y), (self.x, self.y)) < settings.letter_selection_radius:
+            self.selection_score += 1
+        else:
+            self.selection_score = 0
+        if self.selection_score > self.selection_threshold:
+            self.selection_score = 0
+            self.selected = True
+        else:
+            self.selected = False
+        r = (self.selection_score*255) // self.selection_threshold
+        canvas.itemconfigure(self.handle, fill=make_color(r,0,0))
+
 class OnscreenKeyboard(Drawable):
     ''' Consists of a number of evenly spaced Text objects '''
     def __init__(self, font, shape, predictionary=Predictionary('sample_dict.txt')):
@@ -157,7 +179,10 @@ class OnscreenKeyboard(Drawable):
 
         i = 0
         for x in xrange(0, self.row*self.col):
-            key = Key(0,0, self.font)
+            if settings.kb_version == 2:
+                key = Key2(0,0, self.font)
+            else:
+                key = Key(0,0, self.font)
             key.write(self._predict.get_arrangement()[i])
             i += 1
             self.keys.append(key)
@@ -205,6 +230,8 @@ class OnscreenKeyboard(Drawable):
                 else:
                     self._index_history.append(index)
                     self._index_history.append(index)
+                if settings.kb_version == 2:
+                    self.process()
             if key.text == self._last_selection and y < key.y:
                 canvas.coords(key.handle, x,y)
             else:
@@ -257,10 +284,16 @@ class OnscreenKeyboard(Drawable):
         print('Turning back the page...')
         self._change_page(-1)
 
-def distance(pos1, pos2):
-    x1, y1 = pos1
-    x2, y2 = pos2
+def distance(pos1,pos2):
+    x1,y1 = pos1
+    x2,y2 = pos2
     return ((x1-x2)**2 + (y1-y2)**2)**0.5
+
+def make_color(r_uint8,g_uint8,b_uint8):
+    r = '0x{:02x}'.format(r_uint8).replace('0x','')
+    g = '0x{:02x}'.format(g_uint8).replace('0x','')
+    b = '0x{:02x}'.format(b_uint8).replace('0x','')
+    return '#'+r+g+b
 
 class Application(Frame):
     def __init__(self, master=None, screen_size=(1080, 720)):
@@ -370,14 +403,14 @@ if __name__ == '__main__':
     root = Tk()
     root.attributes("-fullscreen", True)
     w,h = (root.winfo_screenwidth(), root.winfo_screenheight())
-    print(w, h)
+    print(w,h)
     area = w*h
-    console_font = font.Font(family='Helvetica', size=settings.console_font_size, weight='bold')
-    kb_font = font.Font(family='Helvetica', size=settings.kb_font_size, weight='bold')
+    console_font = font.Font(family='Helvetica',size=settings.console_font_size, weight='bold')
+    kb_font = font.Font(family='Helvetica',size=settings.kb_font_size, weight='bold')
     kb = OnscreenKeyboard(kb_font, settings.kb_shape, Predictionary(settings.dict_filename))
     if (settings.keep_coordinates_log == 1):
-        coordinates_log = open(settings.log_name, 'w')
-    app = Application(master=root, screen_size=(w,h))
-    app.master.minsize(500, 500)
+        coordinates_log = open(settings.log_name,'w')
+    app = Application(master=root,screen_size=(w,h))
+    app.master.minsize(500,500)
     app.mainloop()
     app.quit()
