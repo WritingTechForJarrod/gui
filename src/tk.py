@@ -325,6 +325,7 @@ class Application(Frame):
         self.canvas.bind("<Motion>", on_mouse_move)
         self.canvas.bind("<ButtonPress-1>", on_left_click)
         self.canvas.bind("<ButtonPress-3>", on_right_click)
+        self.canvas.bind_all("<Escape>", on_esc)
 
     def mainloop(self):
         go = Thread(target=self.draw_periodic)
@@ -346,6 +347,10 @@ class Application(Frame):
 
 def on_mouse_move(event):
     app.last_mouse = (event.x, event.y)
+
+def on_esc(event):
+    print('Hooray you tried to quit')
+    app.quit()
 
 def on_right_click(event):
     if (settings.dynamic_screen == 1):
