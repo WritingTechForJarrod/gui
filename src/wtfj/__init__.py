@@ -1,24 +1,27 @@
 '''
-Author:    max@embeddedprofessional.com
+Writing Tech for Jarrod
+Gui module classes and objects
+max.prokopenko@gmail.com
+
+'canvas' in these methods is a Tkinter(tkinter if py3) canvas
 '''
-from __future__ import print_function
-from __future__ import unicode_literals
-import sys
-try:
-    assert sys.version_info[0] == 3
-    from tkinter import *
-    import tkinter.font as font
-except AssertionError as e:
-    from Tkinter import *
-    import tkFont as font
-from threading import Thread, Lock
-from random import randint
-import time
-import types
-from math import atan2, pi
+import logging
+import settings
 from predictionary import Predictionary
-from filters import MovingAverage
-import settings # user settings
+from filters import *
+
+def distance(pos1,pos2):
+    ''' Euclidean distance '''
+    x1,y1 = pos1
+    x2,y2 = pos2
+    return ((x1-x2)**2 + (y1-y2)**2)**0.5
+
+def make_color(r_uint8,g_uint8,b_uint8):
+    ''' Color in 24-bit RGB format to '0x#######' string format '''
+    r = '0x{:02x}'.format(r_uint8).replace('0x','')
+    g = '0x{:02x}'.format(g_uint8).replace('0x','')
+    b = '0x{:02x}'.format(b_uint8).replace('0x','')
+    return '#'+r+g+b
 
 class Drawable(object):
     ''' Interface for objects that can be drawn on a tkinter Canvas '''
@@ -55,7 +58,7 @@ class MouseLight(Drawable):
             self.countup = False
         elif self.i == 0:
             self.countup = True
-        canvas.itemconfigure(self.handle, fill=make_color(0,self.i,255-self.i))
+        canvas.itemconfigure(self.handle,fill=make_color(0,self.i,255-self.i))
 
 class FunctionBox(Drawable):
     ''' Box executes a function when moused over '''
@@ -84,7 +87,7 @@ class FunctionBox(Drawable):
 
 class Text(Drawable):
     ''' Updateable text field '''
-    def __init__(self, x, y, font, size=5):
+    def __init__(self,x,y,font, size=5):
         self.x, self.y = (x,y)
         self.font = font
         self.text = ''
@@ -162,14 +165,18 @@ class Key2(Text):
 
 class OnscreenKeyboard(Drawable):
     ''' Consists of a number of evenly spaced Text objects '''
-    def __init__(self, font, shape, predictionary=Predictionary('sample_dict.txt')):
+    def __init__(self, font, shape, predictionary):
+        self.logger = logging.getLogger('kb')
         row,col = shape
         if not isinstance(predictionary, Predictionary):
-            print(str(type(predictionary)) + ' does not inherit from ' + str(Predictionary))
-            print('Initialization of Keyboard failed, exiting')
+            self.logger.critical(str(type(predictionary)) + ' does not inherit from ' + str(Predictionary))
+            self.logger.critical('Initialization of Keyboard failed, exiting...')
             quit()
         self.set_rows_and_cols(row, col)
         self.keys = []
+        self._write = lambda x: self.logger.warning('_write called, function has no handler, attempted to write '+str(x))
+        self._speak = lambda x: self.logger.warning('_speak called, function has no handler, attempted to speak '+str(x))
+        self._clear = lambda x: self.logger.warning('_clear called, function has no handler')
         self._predict = predictionary
         self._last_selection = None
         self._index_history = []
@@ -231,6 +238,7 @@ class OnscreenKeyboard(Drawable):
                     self._index_history.append(index)
                     self._index_history.append(index)
                 if settings.kb_version == 2:
+                    self._speak(self._last_selection+' ') # Do always before processing
                     self.process()
             if key.text == self._last_selection and y < key.y:
                 canvas.coords(key.handle, x,y)
@@ -249,9 +257,14 @@ class OnscreenKeyboard(Drawable):
         self.font.configure(size=int(size*0.9))
 
     def process(self):
+        '''
+        Processes the last key pressed through the predictionary 
+        Replaces the key with next key given by predictionary
+        Clears last selection, console if '.' selected
+        '''
         self.page = 0
         if self._last_selection is not '':
-            self._predict.process(self._last_selection)
+            self._predict.process(self._last_selection) # TODO more flexible letter provider interface
             i = 0
             choices = self._predict.get_arrangement()
             for key in self.keys:
@@ -259,9 +272,9 @@ class OnscreenKeyboard(Drawable):
                 key.clear()
                 key.write(choices[i])
                 i += 1
-            app.console.write(self._last_selection)
+            self._write(self._last_selection)
             if self._last_selection == '.':
-                app.console.clear()
+                self._clear()
             self._last_selection = ''
 
     def _change_page(self, page_inc):
@@ -276,141 +289,34 @@ class OnscreenKeyboard(Drawable):
             key.write(choices[i])
             i = (i+1) % len(choices)
 
+    def attach_write_callback(self, write_function):
+        ''' 
+        Set destination for letters that are entered into kb buffer
+        Write function takes argument of char to be written out
+        '''
+        self._write = write_function
+
+    def attach_speak_callback(self, speak_function):
+        '''
+        Set output function for speech
+        Speak function takes argument of phrase to be spoken
+        '''
+        self._speak = speak_function
+
+    def attach_clear_callback(self, clear_function):
+        '''
+        Set function to call on clearing kb buffer
+        Clear function takes no arguments
+        '''
+        self._clear = clear_function
+
     def next_page(self):
-        print('Turning the page forward...')
+        logging.getLogger('app').debug('Turning the page forward...')
         self._change_page(1)
 
     def prev_page(self):
-        print('Turning back the page...')
+        logging.getLogger('app').debug('Turning back the page...')
         self._change_page(-1)
 
-def distance(pos1,pos2):
-    x1,y1 = pos1
-    x2,y2 = pos2
-    return ((x1-x2)**2 + (y1-y2)**2)**0.5
-
-def make_color(r_uint8,g_uint8,b_uint8):
-    r = '0x{:02x}'.format(r_uint8).replace('0x','')
-    g = '0x{:02x}'.format(g_uint8).replace('0x','')
-    b = '0x{:02x}'.format(b_uint8).replace('0x','')
-    return '#'+r+g+b
-
-class Application(Frame):
-    def __init__(self, master=None, screen_size=(1080, 720)):
-        # Create lists of drawable objects in app
-        self.drawables = []
-        # Application housekeeping
-        Frame.__init__(self, master)
-        self.is_alive = True
-        self.screen_w = screen_size[0]
-        self.screen_h = screen_size[1]
-        self.last_mouse = (0,0)
-        self.last_eye = (0,0)
-        self.filter_type = MovingAverage(settings.filter_window_size)
-        self.mutex = Lock()
-        self.pack()
-        self.createWidgets()
-
-    def delete_stuff(self):
-        self.canvas.delete(ALL)
-
-    def draw_periodic(self):
-        if (settings.keep_coordinates_log == 1):
-            if (settings.input_device == 0):
-                coordinates_log.write(str(self.last_mouse[0]) + "," + str(self.last_mouse[1]) + "\n")
-            else:
-                coordinates_log.write(str(self.last_eye[0]) + "," + str(self.last_eye[1]) + "\n")
-        self.mutex.acquire()
-        for drawable in self.drawables:
-            if (settings.input_device == 0): # mouse input
-                drawable.update(self.canvas, self.last_mouse)
-            else: # eye tracker input
-                self.readEyeTrack('eyeStream.txt')
-                drawable.update(self.canvas, self.last_eye)
-        self.mutex.release()
-        self.canvas.after(1, self.draw_periodic)
-
-    def quit(self):
-        self.is_alive = False
-        Frame.quit(self)
-
-    def createWidgets(self):
-        self.canvas = Canvas(self.master, width=self.screen_w, height=self.screen_h)
-        w,h = (self.screen_w, self.screen_h)
-        
-        self.drawables.append(MouseLight(100))
-        if (settings.dynamic_screen == 1):
-            self.drawables.append(FunctionBox(w-h/4,     0,    w, h/5, self.quit, fill='red'))
-            self.drawables.append(FunctionBox(    0, 4*h/5,  h/4,   h, kb.prev_page, fill='black'))
-            self.drawables.append(FunctionBox(w-h/4, 4*h/5,    w,   h, kb.next_page, fill='black'))
-            self.drawables.append(FunctionBox(    0,     0,  h/4, h/5, select_last_letter, fill='yellow'))
-        self.console = Text(0,0, console_font)
-        self.drawables.append(self.console)
-        kb.set_dimensions(0,h/4,w,4*h/8)
-        self.drawables.append(kb)
-
-        for drawable in self.drawables:
-            drawable.draw(self.canvas)
-
-        self.canvas.itemconfigure(self.console.handle, anchor='nw')
-
-        self.canvas.pack()
-        self.canvas.bind("<Motion>", on_mouse_move)
-        self.canvas.bind("<ButtonPress-1>", on_left_click)
-        self.canvas.bind("<ButtonPress-3>", on_right_click)
-        self.canvas.bind_all("<Escape>", on_esc)
-
-    def mainloop(self):
-        go = Thread(target=self.draw_periodic)
-        go.start()
-        Frame.mainloop(self)
-        go.join()
-
-    def readEyeTrack(self, fileName):
-        with open(fileName,'r') as f:
-            try:
-                contents = f.readline()
-                x_y = contents.split(',')
-                eye_x = int(float(x_y[0])/1.5)
-                eye_y = int(float(x_y[1])/1.5)
-                self.filter_type.calculate_average(eye_x, eye_y)
-                self.last_eye = (self.filter_type.filtered_x, self.filter_type.filtered_y)
-            except ValueError:
-                pass
-
-def on_mouse_move(event):
-    app.last_mouse = (event.x, event.y)
-
-def on_esc(event):
-    print('Hooray you tried to quit')
-    app.quit()
-
-def on_right_click(event):
-    if (settings.dynamic_screen == 1):
-        print('Right click')
-        kb.smaller()
-    else:
-        quit()
-
-def on_left_click(event):
-    print('Left click')
-    kb.larger() 
-
-def select_last_letter():
-    kb.process()
-
 if __name__ == '__main__':
-    root = Tk()
-    root.attributes("-fullscreen", True)
-    w,h = (root.winfo_screenwidth(), root.winfo_screenheight())
-    print(w,h)
-    area = w*h
-    console_font = font.Font(family='Helvetica',size=settings.console_font_size, weight='bold')
-    kb_font = font.Font(family='Helvetica',size=settings.kb_font_size, weight='bold')
-    kb = OnscreenKeyboard(kb_font, settings.kb_shape, Predictionary(settings.dict_filename))
-    if (settings.keep_coordinates_log == 1):
-        coordinates_log = open(settings.log_name,'w')
-    app = Application(master=root,screen_size=(w,h))
-    app.master.minsize(500,500)
-    app.mainloop()
-    app.quit()
+    pass
