@@ -127,9 +127,6 @@ class Key(Text):
     def update(self, canvas, pos):
         x,y = pos
         super(Key, self).update(canvas, (x,y))
-        #app.console.clear()
-        #app.console.write_line(str(self.x) + ' ' + str(self.y))
-        #app.console.write(str(x) + ' ' + str(y))
         if distance((x,y), (self.x, self.y)) < settings.letter_selection_radius:
             canvas.itemconfigure(self.handle, fill='red')
             self.selected = True
@@ -143,24 +140,20 @@ class Key2(Text):
         super(Key2, self).__init__(x,y, font, size)
         self.selected = False
         self.selection_score = 0
-        self.selection_threshold = settings.selection_delay
 
     def update(self, canvas, pos):
         x,y = pos
         super(Key2, self).update(canvas, (x,y))
-        #app.console.clear()
-        #app.console.write_line(str(self.x) + ' ' + str(self.y))
-        #app.console.write(str(x) + ' ' + str(y))
         if distance((x,y), (self.x, self.y)) < settings.letter_selection_radius:
             self.selection_score += 1
         else:
             self.selection_score = 0
-        if self.selection_score > self.selection_threshold:
+        if self.selection_score > settings.selection_delay:
             self.selection_score = 0
             self.selected = True
         else:
             self.selected = False
-        r = (self.selection_score*255) // self.selection_threshold
+        r = (self.selection_score*255) // settings.selection_delay
         canvas.itemconfigure(self.handle, fill=make_color(r,0,0))
 
 class OnscreenKeyboard(Drawable):
@@ -174,14 +167,18 @@ class OnscreenKeyboard(Drawable):
             quit()
         self.set_rows_and_cols(row, col)
         self.keys = []
-        self._write = lambda x: self.logger.warning('_write called, function has no handler, attempted to write '+str(x))
-        self._speak = lambda x: self.logger.warning('_speak called, function has no handler, attempted to speak '+str(x))
-        self._clear = lambda x: self.logger.warning('_clear called, function has no handler')
+
+        unattached_msg = 'called but no callback function attached'
+        self._write = lambda x: self.logger.warning('_write '+unattached_msg+', attempted to write '+str(x))
+        self._speak = lambda x: self.logger.warning('_speak '+unattached_msg+', attempted to speak '+str(x))
+        self._clear = lambda: self.logger.warning('_clear '+unattached_msg)
+        self._undo = lambda: self.logger.warning('_undo '+unattached_msg)
+
         self._predict = predictionary
         self._last_selection = None
         self._index_history = []
         self._at_end = False
-        self.page = 0
+        self._page = 0
         self.font = font
 
         i = 0
@@ -190,15 +187,31 @@ class OnscreenKeyboard(Drawable):
                 key = Key2(0,0, self.font)
             else:
                 key = Key(0,0, self.font)
-            key.write(self._predict.get_arrangement()[i])
+            try:
+                key.write(self._get_arrangement()[i])
+            except IndexError as e:
+                self.logger.warning('Not enough choices to populate keyboard')
             i += 1
             self.keys.append(key)
 
-    def set_rows_and_cols(self, row, col):
-        self.row, self.col = row, col
+    def set_rows_and_cols(self, row,col):
+        self.row,self.col = row,col
 
     def set_dimensions(self, x,y,w,h):
         self.x,self.y,self.w,self.h = (x,y,w,h)
+
+    def _get_arrangement(self):
+        if settings.kb_version > 1:
+            layout = [
+                ['A','H','N','U','#','.','{}','<'],
+                ['a','b','c','d','e','f','g' ,'<'],
+                ['h','i','j','k','l','m','#' ,'<'],
+                ['n','o','p','q','r','s','t' ,'<'],
+                ['u','v','w','x','y','z','#','<',]
+            ]
+            return layout[self._page]
+        else:
+            return self._predict._get_arrangement()
 
     def draw(self, canvas):
         dx,dy = (self.w/self.col, self.h/self.row)
@@ -238,7 +251,6 @@ class OnscreenKeyboard(Drawable):
                     self._index_history.append(index)
                     self._index_history.append(index)
                 if settings.kb_version == 2:
-                    self._speak(self._last_selection+' ') # Do always before processing
                     self.process()
             if key.text == self._last_selection and y < key.y:
                 canvas.coords(key.handle, x,y)
@@ -258,33 +270,43 @@ class OnscreenKeyboard(Drawable):
 
     def process(self):
         '''
-        Processes the last key pressed through the predictionary 
-        Replaces the key with next key given by predictionary
+        Outputs last selected char/key
+        v1:Processes the last key pressed through the predictionary 
+        v2:Flips to another page
         Clears last selection, console if '.' selected
         '''
-        self.page = 0
         if self._last_selection is not '':
-            self._predict.process(self._last_selection) # TODO more flexible letter provider interface
-            i = 0
-            choices = self._predict.get_arrangement()
-            for key in self.keys:
-                key.selected = False
-                key.clear()
-                key.write(choices[i])
-                i += 1
-            self._write(self._last_selection)
+            next_page = 0
+            if settings.kb_version > 1:
+                selection_map = {'A':1,'H':2,'N':3,'U':4}
+                function_map = {'<':self._undo}
+                try:
+                    next_page = selection_map[self._last_selection]
+                except KeyError:
+                    try:
+                        function_map[self._last_selection]()
+                        settings.selection_delay += 5
+                    except KeyError:
+                        self._write(self._last_selection)
+                        self._speak(self._last_selection+'.')
+                        settings.selection_delay = max(0,settings.selection_delay-1)
+            else:
+                self._write(self._last_selection)
+                self._predict.process(self._last_selection) # TODO more flexible letter provider interface
+            self._change_page(next_page)
             if self._last_selection == '.':
                 self._clear()
             self._last_selection = ''
 
-    def _change_page(self, page_inc):
-        self.page = self.page + page_inc
+    def _change_page(self, page=0):
+        self._page = page
         self._at_end = False
         del self._index_history[:]
-        i = self.page*self.col*self.row
-        choices = self._predict.get_arrangement()
+        i = self._page*self.col*self.row
+        choices = self._get_arrangement()
         i %= len(choices)
         for key in self.keys:
+            key.selected = False
             key.clear()
             key.write(choices[i])
             i = (i+1) % len(choices)
@@ -310,13 +332,20 @@ class OnscreenKeyboard(Drawable):
         '''
         self._clear = clear_function
 
+    def attach_undo_callback(self, undo_function):
+        '''
+        Passed function is invoked when an undo command is chosen
+        Undo function takes no arguments
+        '''
+        self._undo = undo_function
+
     def next_page(self):
         logging.getLogger('app').debug('Turning the page forward...')
-        self._change_page(1)
+        self._change_page(self._page+1)
 
     def prev_page(self):
         logging.getLogger('app').debug('Turning back the page...')
-        self._change_page(-1)
+        self._change_page(self._page-1)
 
 if __name__ == '__main__':
     pass

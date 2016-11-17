@@ -58,14 +58,9 @@ class Application(Frame):
 
         # Call this loop again after 1 millisecond
         engine.iterate()
-        self.canvas.after(20, self.draw_periodic)
-
-        # Get any messages from audio engine
-        #if q2.empty() == False:
-        #    logging.getLogger('process').debug(q2.get())
+        self.canvas.after(40, self.draw_periodic)
 
     def quit(self):
-        #estop.set()
         logging.getLogger('app').debug('Exiting application...')
         self.is_alive = False
         Frame.quit(self)
@@ -81,14 +76,14 @@ class Application(Frame):
         # Function boxes in corner of screen
         if (settings.dynamic_screen == 1):
             self.drawables.append(FunctionBox(w-h//4,      0,     w, h//5, self.quit, fill='red'))
-            self.drawables.append(FunctionBox(     0, 4*h//5,  h//4,    h, kb.prev_page, fill='black'))
-            self.drawables.append(FunctionBox(w-h//4, 4*h//5,     w,    h, kb.next_page, fill='black'))
+            #self.drawables.append(FunctionBox(     0, 4*h//5,  h//4,    h, kb.prev_page, fill='black'))
+            #self.drawables.append(FunctionBox(w-h//4, 4*h//5,     w,    h, kb.next_page, fill='black'))
             #self.drawables.append(FunctionBox(    0,      0,   h/4,  h/5, select_last_letter, fill='yellow'))
 
         # Upper text console and keyboard
         self.console = Text(0,0, console_font)
         self.drawables.append(self.console)
-        kb.set_dimensions(0,0,w,4*h//8)
+        kb.set_dimensions(0,h//6,w,h-h//6)
         self.drawables.append(kb)
 
         # Initial drawing of all Drawables
@@ -119,38 +114,6 @@ class Application(Frame):
                 self.last_eye = (self.filter_type.filtered_x, self.filter_type.filtered_y)
             except ValueError:
                 pass
-
-def f(q,e):
-    name = current_process().name
-    q.put('Starting'+name)
-    engine = pyttsx.init()
-    q.put('Reached this')
-    engine.setProperty('rate', 100)
-    voices = engine.getProperty('voices')
-    for voice in voices:
-        engine.setProperty('voice', voice.id)
-    #e.wait()
-    #engine.startLoop()
-    e.wait()
-    engine.say('yo!')
-    engine.runAndWait()
-    q.put('Exiting')
-
-def f2(q1,q2,e,estop): 
-    start = time.clock()
-    engine = pyttsx.init()
-    end = time.clock()
-    q2.put('Time to init engine: '+str(end-start))
-    while estop.is_set() == False:
-        #e.wait()
-        if q1.empty() == False:
-            engine.say(q1.get())
-            start = time.clock()
-            engine.runAndWait()
-            end = time.clock()
-            q2.put('Time to runAndWait: '+str(end-start))
-        #e.clear()
-        time.sleep(10)
 
 def on_mouse_move(event):
     app.last_mouse = (event.x, event.y)
@@ -197,33 +160,9 @@ if __name__ == '__main__':
     if (settings.keep_coordinates_log == 1):
         coordinates_log = open(settings.log_name,'w')
 
-    '''
-    queue = Queue()
-
-    from multiprocessing.managers import BaseManager
-    class Q(BaseManager):
-        pass
-    BaseManager.register(str('get_queue'), callable=lambda: queue)
-    manager = BaseManager(address=('', 50000), authkey='abc')
-    server = manager.get_server()
-    server.serve_forever()
-    '''
-    
-    '''
-    e = Event()
-    estop = Event()
-    q1,q2 = Queue(),Queue()
-    p = Process(target=f2,args=(q1,q2,e,estop))
-    p.start()
-    '''
-
-    '''
-    p = Process(target=f1, args=(q,e,))
-    mainlog.debug('This is where the new Process should start')
-    p.start()
-    '''
     engine = pyttsx.init()
     engine.startLoop(False)
+    engine.setProperty('rate',80)
 
     # Start main app
     app = Application(master=root,screen_size=(w,h))
