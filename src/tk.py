@@ -313,7 +313,7 @@ class Application(Frame):
             self.drawables.append(FunctionBox(    0,     0,  h/4, h/5, select_last_letter, fill='yellow'))
         self.console = Text(0,0, console_font)
         self.drawables.append(self.console)
-        kb.set_dimensions(0,h/4,w,4*h/8)
+        kb.set_dimensions(0,0,w,h)
         self.drawables.append(kb)
 
         for drawable in self.drawables:
