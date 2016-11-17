@@ -107,13 +107,12 @@ class Text(Drawable):
 
     def write(self, text):
         if text is not None:
-            print('Text written: ' + text)
             self.text += text
         else:
             print('Warning, None value passed to Text.write()')
 
     def write_line(self, text):
-        self.write(text + '\n')
+        self.write(text+'\n')
 
     def clear(self):
         self.text = ''
@@ -279,7 +278,10 @@ class OnscreenKeyboard(Drawable):
             next_page = 0
             if settings.kb_version > 1:
                 selection_map = {'A':1,'H':2,'N':3,'U':4}
-                function_map = {'<':self._undo}
+                def add_space(): 
+                    self._last_selection = ' '
+                    self.process()
+                function_map = {'<':self._undo,'{}':add_space}
                 try:
                     next_page = selection_map[self._last_selection]
                 except KeyError:
@@ -288,7 +290,7 @@ class OnscreenKeyboard(Drawable):
                         settings.selection_delay += 5
                     except KeyError:
                         self._write(self._last_selection)
-                        self._speak(self._last_selection+'.')
+                        self._speak(self._last_selection)
                         settings.selection_delay = max(0,settings.selection_delay-1)
             else:
                 self._write(self._last_selection)

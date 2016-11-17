@@ -150,29 +150,35 @@ if __name__ == '__main__':
     root.attributes("-fullscreen", True)
     w,h = (root.winfo_screenwidth(), root.winfo_screenheight()) # TODO fix the resolution issues
 
-    # Create logger, fonts, keyboard
+    # Create loggers, fonts, keyboard
     logging.basicConfig(level=logging.DEBUG)
     mainlog = logging.getLogger('main')
     console_font = font.Font(family='Helvetica',size=settings.console_font_size, weight='bold')
     kb_font = font.Font(family='Helvetica',size=settings.kb_font_size, weight='bold')
-    mainlog.debug('Using dict file '+settings.dict_path+settings.dict_filename)
     kb = OnscreenKeyboard(kb_font, settings.kb_shape, Predictionary('../dict/'+settings.dict_filename))
     if (settings.keep_coordinates_log == 1):
         coordinates_log = open(settings.log_name,'w')
 
+    # Start speech enginge
     engine = pyttsx.init()
     engine.startLoop(False)
     engine.setProperty('rate',80)
+    mainlog.debug('Speech volume set to '+str(engine.getProperty('volume')))
 
     # Start main app
     app = Application(master=root,screen_size=(w,h))
     kb.attach_write_callback(app.console.write)
     kb.attach_speak_callback(speak)
+    
     def clear_callback():
         speak(app.console.text)
         app.console.clear()
+
+    def undo_callback():
+        app.console.text = app.console.text[0:-1]
+
     kb.attach_clear_callback(clear_callback)
-    #kb.attach_undo_function
+    kb.attach_undo_callback(undo_callback)
     app.master.minsize(500,500)
     app.mainloop()
     app.quit()
