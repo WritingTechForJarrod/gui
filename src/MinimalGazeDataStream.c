@@ -4,6 +4,7 @@
  * Copyright 2013-2014 Tobii Technology AB. All rights reserved.
  */
 #define _CRT_SECURE_NO_WARNINGS
+#define PROGRAM_DURATION 80 // set time in seconds here
 
 #include <Windows.h>
 #include <stdio.h>
@@ -18,7 +19,11 @@ static const TX_STRING InteractorId = "Twilight Sparkle";
 // global variables
 static TX_HANDLE g_hGlobalInteractorSnapshot = TX_EMPTY_HANDLE;
 static FILE* f;
-static FILE* debug;
+static FILE* log;
+static DWORD g_start_time;
+static DWORD g_current_time;
+static DWORD g_end_time;
+static SYSTEMTIME g_current_sys_time;
 
 /*
  * Initializes g_hGlobalInteractorSnapshot with an interactor that has the Gaze Point behavior.
@@ -71,6 +76,10 @@ void TX_CALLCONVENTION OnEngineConnectionStateChanged(TX_CONNECTIONSTATE connect
 			}
 			else {
 				printf("Waiting for gaze data to start streaming...\n");
+				g_start_time = GetTickCount();
+				GetSystemTime(&g_current_sys_time);
+				printf("Log started at: %02d:%02d\n", g_current_sys_time.wMinute, g_current_sys_time.wSecond);
+				g_end_time = g_start_time + PROGRAM_DURATION * 1000; // multiply clock ticks by 1000 to get seconds
 			}
 		}
 		break;
@@ -100,12 +109,20 @@ void OnGazeDataEvent(TX_HANDLE hGazeDataBehavior)
 {
 	TX_GAZEPOINTDATAEVENTPARAMS eventParams;
 	if (txGetGazePointDataEventParams(hGazeDataBehavior, &eventParams) == TX_RESULT_OK) {
-		printf("\rGaze Data: (%5.1f, %5.1f) timestamp %.0f ms", eventParams.X, eventParams.Y, eventParams.Timestamp);
-		fprintf(f, "%5.1f, %5.1f", eventParams.X, eventParams.Y);
-		fseek(f,0,SEEK_SET);
-		fprintf(debug, "%5.1f, %5.1f\n", eventParams.X, eventParams.Y);
+	  g_current_time = GetTickCount();
+	  if (g_current_time > g_end_time) {
+	    GetSystemTime(&g_current_sys_time);
+	    printf("Log ended at: %02d:%02d\n", g_current_sys_time.wMinute, g_current_sys_time.wSecond);
+	    fclose(f);
+	    fclose(log);
+	    exit(0); // Hackey yes, only being used for data collection
+	  }
+	  printf("\rGaze Data: (%5.1f, %5.1f) timestamp %.0f ms", eventParams.X, eventParams.Y, eventParams.Timestamp);
+	  fprintf(f, "%5.1f, %5.1f", eventParams.X, eventParams.Y);
+	  fseek(f,0,SEEK_SET);
+	  fprintf(log, "%5.1f,%5.1f,%.0f\n", eventParams.X, eventParams.Y, eventParams.Timestamp);
 	} else {
-		printf("Failed to interpret gaze data event packet.");
+	  printf("Failed to interpret gaze data event packet.");
 	}
 }
 
@@ -144,8 +161,7 @@ int main(int argc, char* argv[])
 	TX_TICKET hEventHandlerTicket = TX_INVALID_TICKET;
 	BOOL success;
 	f = fopen("gui/src/eyeStream.txt", "w");
-	debug = fopen("debugEyeStream_C.txt", "w");
-
+	log = fopen("static_1x4_letters_WOAT_2.txt", "w");
 	// initialize and enable the context that is our link to the EyeX Engine.
 	success = txInitializeEyeX(TX_EYEXCOMPONENTOVERRIDEFLAG_NONE, NULL, NULL, NULL, NULL) == TX_RESULT_OK;
 	success &= txCreateContext(&hContext, TX_FALSE) == TX_RESULT_OK;
@@ -177,6 +193,6 @@ int main(int argc, char* argv[])
 	}
 
 	fclose(f);
-	fclose(debug);
+	fclose(log);
 	return 0;
 }
