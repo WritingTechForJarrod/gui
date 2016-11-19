@@ -1,4 +1,4 @@
 ###GUI
 #Displaying text and controls
 Dependencies:
-*python 3.3
+*python 2.6+
