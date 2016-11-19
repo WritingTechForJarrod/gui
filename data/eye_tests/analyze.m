@@ -18,13 +18,13 @@ m15 = csvread('static_2x2_letters_O_1.txt');
 m16 = csvread('static_2x2_letters_O_2.txt');
 m17 = csvread('static_2x2_letters_T_1.txt');
 m18 = csvread('static_2x2_letters_T_2.txt');
-m19 = csvread('static_2x2_letters_W_1.txt');
-m20 = csvread('static_2x2_letters_W_2.txt');
-m1x4 = [m3' m4' m5' m6' m7' m8' m9' m10']';
+m19 = csvread('static_2x2_letters_A_1.txt');
+m20 = csvread('static_2x2_letters_A_2.txt');
+m1x4 = [m3' m4' m5' m6' m7' m8']';% m9' m10']';
 m1x1 = [m11' m12']';
 m2x2 = [m13' m14' m15' m16' m17' m18' m19' m20']';
 
-m = m1x4
+m = m1x4;%[m17' m18']';
 
 m(:,2) = y_res-m(:,2);
 s = size(m);
