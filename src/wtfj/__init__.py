@@ -152,8 +152,8 @@ class Key2(Text):
             self.selected = True
         else:
             self.selected = False
+        if settings.selection_delay <= 0: settings.selection_delay = 1
         r = (self.selection_score*255) // settings.selection_delay
-        if r <= 0: r = 1
         canvas.itemconfigure(self.handle, fill=make_color(r,0,0))
 
 class OnscreenKeyboard(Drawable):
