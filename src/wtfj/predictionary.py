@@ -1,8 +1,14 @@
 from __future__ import unicode_literals
 from __future__ import print_function
-import pickle
+import settings
+import logging
 
 class Node(dict):
+	''' 
+	A letter in the dict tree that has information about how often it occurs,
+	links to next letters of words in the dict, and links to its parent for reverse
+	traversal of the tree structure
+	'''
 	def __init__(self, parent=None, char=None):
 		self.frequency = 1
 		self.char = char
@@ -12,11 +18,12 @@ class Node(dict):
 		if self.parent is None:
 			return '[root]'
 		else:
-			return '[' + self.char + ', ' + str(self.frequency) + ']'
+			return '['+self.char+', '+str(self.frequency)+']'
 
 class Predictionary(object):
-	def __init__(self, filename='sample_dict.txt'):
-		print('Opening dict file ' + filename)
+	''' Predictive text object in the shape of a letter tree, built from a supplied .txt file '''
+	def __init__(self, filename='../dict/sample_dict.txt'):
+		logging.getLogger('predictionary').debug('Opening dict file '+filename)
 		root = self.root = Node()
 		head = self.head = self.root
 		next_char_root = self.next_char_root = Node()
@@ -62,6 +69,12 @@ class Predictionary(object):
 		self.all_symbols = self.get_children(self.root)
 
 	def __repr__(self):
+		''' 
+		Return a string of all possible words in the dictionary
+		NOTE this does not return words that are the first part of a longer word,
+		e.g. if 'all' is in the dictionary 'a' is not output
+		TODO mark end of all words
+		'''
 		str_out = '<PREDICTIONARY>\n'
 		for first_letter in self.root.values():
 			head = first_letter
@@ -84,13 +97,14 @@ class Predictionary(object):
 						head.traversed = True
 		return str_out
 
-	def print_freqs(self):
-		print('<NEXT LETTER>')
+	def freqstrings(self):
+		out = '<NEXT LETTER>'
 		for letter_node in sorted(self.next_char_root.values(), key=lambda x: ord(x.char)):
 			freq_list = ''
 			for letter in sorted(letter_node.values(), key=lambda x: -x.frequency):
 				freq_list += letter.char
-			print('[' + letter_node.char + ']' + freq_list)
+			out += '\n'+'['+letter_node.char+']' + freq_list
+		return out
 
 	def get_word(self, node):
 		out = node
@@ -111,11 +125,12 @@ class Predictionary(object):
 		return ''.join([x.char for x in freq_sorted_twoplus]) + ''.join([x.char for x in freq_sorted_one])
 
 	def process(self, in_char):
+		''' Move down the dictionary tree if in_char is a valid choice. Else switch to frequency method '''
 		if in_char is not None:
 			try:
 				self.head = self.head[in_char]
 			except:
-				print(in_char + ' selection not available')
+				print(in_char+' selection not available')
 			word_found = None
 			if len(self.head) == 0:
 				print('self.head is of type ' + str(type(self.head)))
@@ -128,6 +143,7 @@ class Predictionary(object):
 			return None
 
 	def get_arrangement(self):
+		''' Get a list of all the available chars in the dictionary '''
 		arrangement = str(self.all_symbols)
 		in_words = self.get_children() if self.get_children() is not None else ''
 		for char in in_words:
@@ -135,30 +151,22 @@ class Predictionary(object):
 		return in_words + '.' + arrangement
 
 	def reset(self):
+		''' Resets the dictionary tree, back to choose a new first letter '''
 		self.head = self.root
 
 if __name__ == '__main__':
-
+	''' Test build a Predictionary from a file, interact on the console std in '''
 	import time
 	start = time.clock()
-	p = Predictionary("test_dict.txt")
+	p = Predictionary(settings.dict_path+'test_dict.txt')
 	end = time.clock()
-	print(str(end-start) + ' seconds to build dictionary')
-	'''
-	with open('predictionary.pkl', 'wb') as f:
-		ptest = Predictionary("wordsEn.txt")
-		pickle.dump(ptest, f, -1)
-
-	del ptest
-
-	with open('predictionary.pkl', 'rb') as f:
-		ptest = pickle.load(f)
-	ptest.print_freqs()
-	'''
-	p.print_freqs()
-	print(p)
+	logging.basicConfig(level=logging.DEBUG)
+	dictlog = logging.getLogger('predictionary')
+	dictlog.debug(str(end-start)+' seconds to build dictionary')
+	dictlog.debug(p.freqstrings())
+	dictlog.debug(repr(p))
 	alive = True
 	while alive:
 		word = p.process(raw_input())
-		if word is not None: print('Word found: ' + word)
+		if word is not None: print('Word found: '+word)
 		print(p.get_arrangement())
