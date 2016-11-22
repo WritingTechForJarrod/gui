@@ -11,6 +11,7 @@ filter_window_size = 5 # effectively no filter when filter_window_size = 1
 dynamic_screen = 1 # 0 = static screen (no function boxes), 1 = dynamic screen (function boxes)
 keep_coordinates_log = 1 # 0 = no log kept, 1 = log kept
 log_name = 'eye_coordinates.txt'
+calibrate = False
 
 selection_delay = 20
 if selection_allowed == 1:
