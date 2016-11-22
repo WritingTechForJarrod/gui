@@ -33,6 +33,7 @@ class Cluster(object) :
       def __init__(self, points):
           self.points = points 
           self.centroid = self.computeCentroid()
+          
       def singleLinkageDist(self, other) :
           minDist = self.points[0].distance(other.points[0])
           for p1 in self.points :
@@ -98,8 +99,8 @@ class Cluster(object) :
              name.append(p.getName())
          name.sort()
          result = 'Cluster with centroid' + str(self.centroid.getFeatures())+ 'contains:\n'
-         for e in name :
-             result = result + e + ', '
+##         for e in name :
+##             result = result + e + ', '
          return result[:-2]
 
  ## clusterSet is used to hierachical clustering         
@@ -296,13 +297,46 @@ def readGazeData(fName):
 def Test(numTrials, k, verbose = False) :
     points = readGazeData('static_1x4_letters_TAOW_1.txt')
     clusters = tryKmeans(points, k, numTrials, verbose)
+    ## give each point in cluster a label [A, B, C,D]
+    label = ['A', 'B', 'C', 'D']
+    centroids = []
     marker = ['ro','bo','ko','go']
     i = 0
+    print('Final result')
     for c in clusters :
         plotSamples(c.points,marker[i])
         i+=1
-    pylab.show()
+        centroids.append(c.getCentroid().getFeatures().tolist())
+    sorted_centroids = sorted(centroids, key = lambda k: [k[0],k[1]])
+    print(sorted_centroids)
+    k = 0
     
+    for c in clusters :
+        index = sorted_centroids.index(c.getCentroid().getFeatures().tolist())
+        for p in c.points :
+                     p.label = label[index]
+    print(clusters[0].points[0])
+    print(clusters[1].points[0])
+    print(clusters[2].points[0])
+    print(clusters[3].points[0])
+##    pylab.show()
+    return clusters
+
+def getGazedata(clusters):
+    data ={}  ##defined as dictionary 
+    data['selection'], data['x_coor'], data['y_coor'] = [], [], []
+    for c in clusters :
+        for p in c.points:
+               data['selection'].append(p.label)
+               data['x_coor'].append(p.getFeatures()[0])
+               data['y_coor'].append(p.getFeatures()[1])
+    return data
+
+def Test_classify(n) :
+    clusters = Test(1, 4, False)
+    training = getGazedata(clusters)
+    print(training['selection'][n]+ ' x_coor is' + str(training['x_coor'][n])+' y_coor is' + str(training['y_coor'][n]))
+
          
 
 
