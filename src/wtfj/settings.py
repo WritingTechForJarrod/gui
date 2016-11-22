@@ -17,3 +17,11 @@ if selection_allowed == 1:
 	letter_selection_radius = 110
 else:
 	letter_selection_radius = 0
+
+# Over-write standard settings with user settings
+
+try:
+    from user_settings import *
+except ImportError:
+    # No user settings defined, this is fine
+    pass
