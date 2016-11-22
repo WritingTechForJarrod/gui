@@ -18,12 +18,8 @@ static const TX_STRING InteractorId = "Twilight Sparkle";
 
 // global variables
 static TX_HANDLE g_hGlobalInteractorSnapshot = TX_EMPTY_HANDLE;
-static FILE* f;
+static FILE* current_eye_coords;
 static FILE* log;
-static DWORD g_start_time;
-static DWORD g_current_time;
-static DWORD g_end_time;
-static SYSTEMTIME g_current_sys_time;
 
 /*
  * Initializes g_hGlobalInteractorSnapshot with an interactor that has the Gaze Point behavior.
@@ -76,10 +72,6 @@ void TX_CALLCONVENTION OnEngineConnectionStateChanged(TX_CONNECTIONSTATE connect
 			}
 			else {
 				printf("Waiting for gaze data to start streaming...\n");
-				g_start_time = GetTickCount();
-				GetSystemTime(&g_current_sys_time);
-				printf("Log started at: %02d:%02d\n", g_current_sys_time.wMinute, g_current_sys_time.wSecond);
-				g_end_time = g_start_time + PROGRAM_DURATION * 1000; // multiply clock ticks by 1000 to get seconds
 			}
 		}
 		break;
@@ -109,17 +101,9 @@ void OnGazeDataEvent(TX_HANDLE hGazeDataBehavior)
 {
 	TX_GAZEPOINTDATAEVENTPARAMS eventParams;
 	if (txGetGazePointDataEventParams(hGazeDataBehavior, &eventParams) == TX_RESULT_OK) {
-	  g_current_time = GetTickCount();
-	  if (g_current_time > g_end_time) {
-	    GetSystemTime(&g_current_sys_time);
-	    printf("Log ended at: %02d:%02d\n", g_current_sys_time.wMinute, g_current_sys_time.wSecond);
-	    fclose(f);
-	    fclose(log);
-	    exit(0); // Hackey yes, only being used for data collection
-	  }
 	  printf("\rGaze Data: (%5.1f, %5.1f) timestamp %.0f ms", eventParams.X, eventParams.Y, eventParams.Timestamp);
-	  fprintf(f, "%5.1f, %5.1f", eventParams.X, eventParams.Y);
-	  fseek(f,0,SEEK_SET);
+	  fprintf(current_eye_coords, "%5.1f, %5.1f", eventParams.X, eventParams.Y);
+	  fseek(current_eye_coords,0,SEEK_SET);
 	  fprintf(log, "%5.1f,%5.1f,%.0f\n", eventParams.X, eventParams.Y, eventParams.Timestamp);
 	} else {
 	  printf("Failed to interpret gaze data event packet.");
@@ -160,7 +144,7 @@ int main(int argc, char* argv[])
 	TX_TICKET hConnectionStateChangedTicket = TX_INVALID_TICKET;
 	TX_TICKET hEventHandlerTicket = TX_INVALID_TICKET;
 	BOOL success;
-	f = fopen("gui/src/eyeStream.txt", "w");
+	current_eye_coords= fopen("../../../../../gui/data/eye_tests/eyeStream.txt", "w");
 	log = fopen("alex_static_1x4_letters_WOAT_2.txt", "w");
 	// initialize and enable the context that is our link to the EyeX Engine.
 	success = txInitializeEyeX(TX_EYEXCOMPONENTOVERRIDEFLAG_NONE, NULL, NULL, NULL, NULL) == TX_RESULT_OK;
@@ -192,7 +176,7 @@ int main(int argc, char* argv[])
 		printf("EyeX could not be shut down cleanly. Did you remember to release all handles?\n");
 	}
 
-	fclose(f);
+	fclose(current_eye_coords);
 	fclose(log);
 	return 0;
 }
