@@ -52,7 +52,7 @@ class Application(Frame):
         self.mutex.acquire()
         for drawable in self.drawables:
             if input_device is self.last_eye:
-                self.readEyeTrack('eyeStream.txt')
+                self.readEyeTrack('../data/eye_tests/eyeStream.txt')
             drawable.update(self.canvas, input_device)
         self.mutex.release()
 
