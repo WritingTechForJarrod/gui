@@ -5,11 +5,19 @@
  */
 #define _CRT_SECURE_NO_WARNINGS
 #define PROGRAM_DURATION 80 // set time in seconds here
+#define EYESTREAM_LOCATION "../../../../../gui/data/eye_tests/eyeStream.txt" // where we put our eye tracker output
+#define CALIBRATION_FLAG "../../../../../gui/src/go.txt" // check if this file exists to begin calibration
+#define CALIBRATION_LOG_1 "../../../../../gui/data/eye_tests/calibration_log_1.txt" // calibration log 1 path
+#define CALIBRATION_LOG_2 "../../../../../gui/data/eye_tests/calibration_log_2.txt" // calibration log 2 path
+#define CALIBRATION_LOG_3 "../../../../../gui/data/eye_tests/calibration_log_3.txt" // calibration log 3 path
+#define CALIBRATION_LOG_4 "../../../../../gui/data/eye_tests/calibration_log_4.txt" // calibration log 4 path
+#define COMBINED_CALIBRATION "../../../../../gui/data/eye_tests/combined_calibration_log.txt"
 
 #include <Windows.h>
 #include <stdio.h>
 #include <conio.h>
 #include <assert.h>
+#include <time.h>
 #include "eyex/EyeX.h"
 
 #pragma comment (lib, "Tobii.EyeX.Client.lib")
@@ -20,6 +28,89 @@ static const TX_STRING InteractorId = "Twilight Sparkle";
 static TX_HANDLE g_hGlobalInteractorSnapshot = TX_EMPTY_HANDLE;
 static FILE* current_eye_coords;
 static FILE* log;
+
+// variables for calibration
+static FILE* g_calibration_log_1;
+static FILE* g_calibration_log_2;
+static FILE* g_calibration_log_3;
+static FILE* g_calibration_log_4;
+static int g_calibration_iteration = 0;
+static time_t g_calibration_start_time;
+static time_t g_current_time;
+
+
+/*
+* Check if flag (presence of go.txt) exists, if so, begin calibration
+* ../../../../../gui/src/go.txt current position of file we check
+*/
+int beginCalibration(char* fileName) {
+	FILE* testFile = fopen(fileName, "r");
+	if (testFile == NULL) {
+		return 0;
+	}
+	else {
+		fclose(testFile);
+		return 1;
+	}
+}
+
+/*
+* Given four file pointers, append in the order given
+* returns 1 on success and 0 on failure
+*/
+int appendFiles(char* fileName1, char* fileName2, char* fileName3, char* fileName4) {
+	FILE* file1 = fopen(fileName1,"r");
+	FILE* file2 = fopen(fileName2,"r");
+	FILE* file3 = fopen(fileName3,"r");
+	FILE* file4 = fopen(fileName4,"r");
+	FILE* combined = fopen(COMBINED_CALIBRATION, "w");
+	char str[50];
+	if (file1 == NULL) {
+		return 0;
+	}
+	if (file2 == NULL) {
+		fclose(file1);
+		return 0;
+	}
+	if (file3 == NULL) {
+		fclose(file1);
+		fclose(file2);
+		return 0;
+	}
+	if (file4 == NULL) {
+		fclose(file1);
+		fclose(file2);
+		fclose(file3);
+		return 0;
+	}
+	if (combined == NULL) {
+		fclose(file1);
+		fclose(file2);
+		fclose(file3);
+		fclose(file4);
+		return 0;
+	}
+	// all 5 logs opened successfully
+	while (fgets(str, 60, file1) != NULL) {
+		fprintf(combined, str);
+	}
+	while (fgets(str, 60, file2) != NULL) {
+		fprintf(combined, str);
+	}
+	while (fgets(str, 60, file3) != NULL) {
+		fprintf(combined, str);
+	}
+	while (fgets(str, 60, file4) != NULL) {
+		fprintf(combined, str);
+	}
+	// done writing
+	fclose(file1);
+	fclose(file2);
+	fclose(file3);
+	fclose(file4);
+	fclose(combined);
+	return 1;
+}
 
 /*
  * Initializes g_hGlobalInteractorSnapshot with an interactor that has the Gaze Point behavior.
@@ -101,10 +192,73 @@ void OnGazeDataEvent(TX_HANDLE hGazeDataBehavior)
 {
 	TX_GAZEPOINTDATAEVENTPARAMS eventParams;
 	if (txGetGazePointDataEventParams(hGazeDataBehavior, &eventParams) == TX_RESULT_OK) {
-	  printf("\rGaze Data: (%5.1f, %5.1f) timestamp %.0f ms", eventParams.X, eventParams.Y, eventParams.Timestamp);
-	  fprintf(current_eye_coords, "%5.1f, %5.1f", eventParams.X, eventParams.Y);
-	  fseek(current_eye_coords,0,SEEK_SET);
-	  fprintf(log, "%5.1f,%5.1f,%.0f\n", eventParams.X, eventParams.Y, eventParams.Timestamp);
+		if (beginCalibration(CALIBRATION_FLAG)) {
+			if (g_calibration_iteration == 0) { // indicates first time going through process
+				// open calibration logs
+				g_calibration_log_1 = fopen(CALIBRATION_LOG_1, "w");
+				g_calibration_log_2 = fopen(CALIBRATION_LOG_2, "w");
+				g_calibration_log_3 = fopen(CALIBRATION_LOG_3, "w");
+				g_calibration_log_4 = fopen(CALIBRATION_LOG_4, "w");
+				
+				g_calibration_start_time = time(NULL);
+				printf("\nCalibration started at: %ld\n", g_calibration_start_time);
+
+				g_calibration_iteration = 1; // set flag to 1 so that we don't initialize calibration again
+			}
+
+			if (g_current_time > g_calibration_start_time + 78) {
+				// calibration done
+				g_calibration_iteration = 0; // reset flag to zero in case we want to calibrate again.
+				remove(CALIBRATION_FLAG); // removes go.txt file
+				fclose(g_calibration_log_1);
+				fclose(g_calibration_log_2);
+				fclose(g_calibration_log_3);
+				fclose(g_calibration_log_4);
+				appendFiles(CALIBRATION_LOG_1, CALIBRATION_LOG_2, CALIBRATION_LOG_3, CALIBRATION_LOG_4);
+				printf("                                        \r");
+				printf("done\n");
+
+			}
+			else if (g_current_time > g_calibration_start_time + 62) {
+				fprintf(g_calibration_log_4, "%5.1f,%5.1f,%.0f\n", eventParams.X, eventParams.Y, eventParams.Timestamp);
+				printf("                                        \r");
+				printf("printing log 4, time: %ld\r", g_current_time);
+			}
+			else if (g_current_time > g_calibration_start_time + 58) {
+				// do nothing for 4 seconds
+				printf("                                        \r");
+				printf("chilling, time: %ld\r", g_current_time);
+			}
+			else if (g_current_time > g_calibration_start_time + 42) {
+				fprintf(g_calibration_log_3, "%5.1f,%5.1f,%.0f\n", eventParams.X, eventParams.Y, eventParams.Timestamp);
+				printf("                                        \r");
+				printf("printing log 3, time: %ld\r", g_current_time);
+			}
+			else if (g_current_time > g_calibration_start_time + 38) {
+				// do nothing for 4 seconds
+				printf("                                        \r");
+				printf("chilling, time: %ld\r", g_current_time);
+			}
+			else if (g_current_time > g_calibration_start_time + 22) {
+				fprintf(g_calibration_log_2, "%5.1f,%5.1f,%.0f\n", eventParams.X, eventParams.Y, eventParams.Timestamp);
+				printf("                                        \r");
+				printf("printing log 2, time: %ld\r", g_current_time);
+			}
+			else if (g_current_time > g_calibration_start_time + 18) {
+				// do nothing for 4 seconds
+				printf("                                        \r");
+				printf("chilling, time: %ld\r", g_current_time);
+			}
+			else if (g_current_time > g_calibration_start_time + 2) {
+				fprintf(g_calibration_log_1, "%5.1f,%5.1f,%.0f\n", eventParams.X, eventParams.Y, eventParams.Timestamp);
+				printf("printing log 1, time: %ld\r", g_current_time);
+			}
+			g_current_time = time(NULL);
+		}
+		//printf("\rGaze Data: (%5.1f, %5.1f) timestamp %.0f ms", eventParams.X, eventParams.Y, eventParams.Timestamp);
+		fprintf(current_eye_coords, "%5.1f, %5.1f", eventParams.X, eventParams.Y);
+		
+		fseek(current_eye_coords,0,SEEK_SET);
 	} else {
 	  printf("Failed to interpret gaze data event packet.");
 	}
@@ -144,8 +298,12 @@ int main(int argc, char* argv[])
 	TX_TICKET hConnectionStateChangedTicket = TX_INVALID_TICKET;
 	TX_TICKET hEventHandlerTicket = TX_INVALID_TICKET;
 	BOOL success;
-	current_eye_coords= fopen("../../../../../gui/data/eye_tests/eyeStream.txt", "w");
+
+	current_eye_coords= fopen(EYESTREAM_LOCATION, "w");
 	log = fopen("alex_static_1x4_letters_WOAT_2.txt", "w");
+
+	g_current_time = time(NULL); // initialize system time
+
 	// initialize and enable the context that is our link to the EyeX Engine.
 	success = txInitializeEyeX(TX_EYEXCOMPONENTOVERRIDEFLAG_NONE, NULL, NULL, NULL, NULL) == TX_RESULT_OK;
 	success &= txCreateContext(&hContext, TX_FALSE) == TX_RESULT_OK;
