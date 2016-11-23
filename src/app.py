@@ -21,9 +21,9 @@ from threading import Thread, Lock
 import time
 import types
 import logging
-from wtfj import *
 import pyttsx
-from multiprocessing import Process, Queue, current_process, Event
+from os import remove
+from wtfj import *
 
 class Application(Frame):
     def __init__(self, master=None, screen_size=(1080, 720)):
@@ -56,8 +56,25 @@ class Application(Frame):
             drawable.update(self.canvas, input_device)
         self.mutex.release()
 
-        # Call this loop again after 1 millisecond
+        # Update speech engine
         engine.iterate()
+
+        # If in calibrate mode update time and change keyboard
+        global t0
+        global cal_stage
+        if settings.calibrate == True:
+            t_hold = [20,40,60,80]
+            if t0 > 0:
+                dt = time.clock() - t0
+                if dt > t_hold[cal_stage]:
+                    kb.next_page()
+                    cal_stage += 1
+                    if cal_stage >= len(t_hold):
+                        cal_stage = 0
+                        t0 = 0
+                        #settings.calibrate = False
+
+        # Call this loop again after some milliseconds
         self.canvas.after(40, self.draw_periodic)
 
     def quit(self):
@@ -96,6 +113,7 @@ class Application(Frame):
         self.canvas.bind("<ButtonPress-1>", on_left_click)
         self.canvas.bind("<ButtonPress-3>", on_right_click)
         self.canvas.bind_all("<Escape>", on_esc)
+        self.canvas.bind_all("<space>", on_space)
 
     def mainloop(self):
         go = Thread(target=self.draw_periodic)
@@ -121,6 +139,16 @@ def on_mouse_move(event):
 def on_esc(event):
     app.quit()
 
+def on_space(event):
+    global t0
+    global cal_stage
+    if settings.calibrate == True:
+        with open('go.txt','w') as f:
+            pass
+        speak('Calibrating, look at each letter')
+        t0 = time.clock()
+        cal_stage = 0
+
 def on_right_click(event):
     mainlog.debug('Right click')
     if settings.dynamic_screen == 1:
@@ -138,8 +166,6 @@ def select_last_letter():
     kb.process()
 
 def speak(phrase):
-    #q1.put(phrase)
-    #e.set()
     engine.say(phrase)
     mainlog.debug('Speaking phrase '+phrase)
 
@@ -165,10 +191,12 @@ if __name__ == '__main__':
     engine.setProperty('rate',80)
     mainlog.debug('Speech volume set to '+str(engine.getProperty('volume')))
 
+    # Setup calibration variables
+    t0 = 0
+    cal_stage = 0
+
     # Start main app
     app = Application(master=root,screen_size=(w,h))
-    kb.attach_write_callback(app.console.write)
-    kb.attach_speak_callback(speak)
     
     def clear_callback():
         speak(app.console.text)
@@ -177,10 +205,19 @@ if __name__ == '__main__':
     def undo_callback():
         app.console.text = app.console.text[0:-1]
 
+    kb.attach_write_callback(app.console.write)
+    kb.attach_speak_callback(speak)
     kb.attach_clear_callback(clear_callback)
     kb.attach_undo_callback(undo_callback)
+
     app.master.minsize(500,500)
     app.mainloop()
     app.quit()
 
+    if settings.calibrate == True:
+        try:
+            remove('go.txt')
+        except WindowsError:
+            # Calibration start file not created, this is fine
+            pass
     engine.endLoop()

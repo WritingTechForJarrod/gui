@@ -152,7 +152,6 @@ class Key2(Text):
             self.selected = True
         else:
             self.selected = False
-        if settings.selection_delay <= 0: settings.selection_delay = 1
         r = (self.selection_score*255) // settings.selection_delay
         canvas.itemconfigure(self.handle, fill=make_color(r,0,0))
 
@@ -201,7 +200,17 @@ class OnscreenKeyboard(Drawable):
         self.x,self.y,self.w,self.h = (x,y,w,h)
 
     def _get_arrangement(self):
-        if settings.kb_version > 1:
+        ''' Returns the current on-screen layout of the keyboard '''
+        if settings.calibrate == True: 
+            layout = [
+                ['a','','',''],
+                ['','b','',''],
+                ['','','c',''],
+                ['','','','d']
+            ]
+            self._page = self._page % len(layout)
+            return layout[self._page]
+        elif settings.kb_version > 1:
             layout = [
                 ['A','H','N','U','#','.','{}','<'],
                 ['a','b','c','d','e','f','g' ,'<'],
@@ -209,11 +218,13 @@ class OnscreenKeyboard(Drawable):
                 ['n','o','p','q','r','s','t' ,'<'],
                 ['u','v','w','x','y','z','#','<',]
             ]
+            self._page = self._page % len(layout)
             return layout[self._page]
         else:
             return self._predict._get_arrangement()
 
     def draw(self, canvas):
+        ''' Draws keyboard keys evenly spaced on tk canvas '''
         dx,dy = (self.w/self.col, self.h/self.row)
         x0,y0 =  (self.x + dx/2, self.y + dy/2)
         i,j = (0,0)
@@ -229,33 +240,35 @@ class OnscreenKeyboard(Drawable):
             canvas.coords(key.handle, x,y)
 
     def update(self, canvas, pos):
+        ''' Checks if a key is selected and if events occur '''
         x,y = pos
         for key in self.keys: 
             key.update(canvas, (x,y))
-            if key.selected == True:
-                self._last_selection = key.text
-                index = self.keys.index(key)
-                if len(self._index_history) > 1:
-                    if self._index_history[0] is not index:
-                        self._index_history[1] = self._index_history[0]
-                        self._index_history[0] = index
-                        '''
-                        if index == (self.col*self.row) - 1:
-                            print('Reached end of page')
-                            self._at_end = True
-                        elif index == 0 and self._at_end == True:
-                            self.next_page()
-                            self._at_end = False
-                        '''
+            if settings.calibrate == False:
+                if key.selected == True:
+                    self._last_selection = key.text
+                    index = self.keys.index(key)
+                    if len(self._index_history) > 1:
+                        if self._index_history[0] is not index:
+                            self._index_history[1] = self._index_history[0]
+                            self._index_history[0] = index
+                            '''
+                            if index == (self.col*self.row) - 1:
+                                print('Reached end of page')
+                                self._at_end = True
+                            elif index == 0 and self._at_end == True:
+                                self.next_page()
+                                self._at_end = False
+                            '''
+                    else:
+                        self._index_history.append(index)
+                        self._index_history.append(index)
+                    if settings.kb_version == 2:
+                        self.process()
+                if key.text == self._last_selection and y < key.y:
+                    canvas.coords(key.handle, x,y)
                 else:
-                    self._index_history.append(index)
-                    self._index_history.append(index)
-                if settings.kb_version == 2:
-                    self.process()
-            if key.text == self._last_selection and y < key.y:
-                canvas.coords(key.handle, x,y)
-            else:
-                canvas.coords(key.handle, key.x,key.y)
+                    canvas.coords(key.handle, key.x,key.y)
 
     def delete(self, canvas):
         for key in self.keys: key.delete(canvas)
@@ -292,7 +305,7 @@ class OnscreenKeyboard(Drawable):
                     except KeyError:
                         self._write(self._last_selection)
                         self._speak(self._last_selection)
-                        settings.selection_delay = max(0,settings.selection_delay-1)
+                        settings.selection_delay = max(1,settings.selection_delay-1)
             else:
                 self._write(self._last_selection)
                 self._predict.process(self._last_selection) # TODO more flexible letter provider interface
@@ -302,6 +315,10 @@ class OnscreenKeyboard(Drawable):
             self._last_selection = ''
 
     def _change_page(self, page=0):
+        ''' 
+        Selects from one of several pages in current keyboard layouts
+        e.g. maybe 'a b c d' or 'e f g h' for 4-key keyboard
+        '''
         self._page = page
         self._at_end = False
         del self._index_history[:]
