@@ -12,6 +12,7 @@ dynamic_screen = 1 # 0 = static screen (no function boxes), 1 = dynamic screen (
 keep_coordinates_log = 1 # 0 = no log kept, 1 = log kept
 log_name = 'eye_coordinates.txt'
 calibrate = False
+calibration_hold_time = 20 # seconds
 
 selection_delay = 20
 if selection_allowed == 1:

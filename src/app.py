@@ -63,16 +63,18 @@ class Application(Frame):
         global t0
         global cal_stage
         if settings.calibrate == True:
-            t_hold = [20,40,60,80]
+            t_h = settings.calibration_hold_time
+            t = [t_h,2*t_h,3*t_h,4*t_h]
             if t0 > 0:
                 dt = time.clock() - t0
-                if dt > t_hold[cal_stage]:
+                if dt > t[cal_stage]:
                     kb.next_page()
                     cal_stage += 1
-                    if cal_stage >= len(t_hold):
+                    if cal_stage >= len(t):
                         cal_stage = 0
                         t0 = 0
-                        #settings.calibrate = False
+                        settings.calibrate = False
+                        kb.reset()
 
         # Call this loop again after some milliseconds
         self.canvas.after(40, self.draw_periodic)
@@ -91,8 +93,8 @@ class Application(Frame):
         self.drawables.append(MouseLight(100))
 
         # Function boxes in corner of screen
-        if (settings.dynamic_screen == 1):
-            self.drawables.append(FunctionBox(w-h//4,      0,     w, h//5, self.quit, fill='red'))
+        #if (settings.dynamic_screen == 1):
+            #self.drawables.append(FunctionBox(w-h//4,      0,     w, h//5, self.quit, fill='red'))
             #self.drawables.append(FunctionBox(     0, 4*h//5,  h//4,    h, kb.prev_page, fill='black'))
             #self.drawables.append(FunctionBox(w-h//4, 4*h//5,     w,    h, kb.next_page, fill='black'))
             #self.drawables.append(FunctionBox(    0,      0,   h/4,  h/5, select_last_letter, fill='yellow'))
@@ -142,12 +144,12 @@ def on_esc(event):
 def on_space(event):
     global t0
     global cal_stage
-    if settings.calibrate == True:
-        with open('go.txt','w') as f:
-            pass
-        speak('Calibrating, look at each letter')
-        t0 = time.clock()
-        cal_stage = 0
+    settings.calibrate = True
+    with open('go.txt','w') as f: pass # Create go.txt flag file
+    kb.reset()
+    speak('Calibrating, look at each letter')
+    t0 = time.clock()
+    cal_stage = 0
 
 def on_right_click(event):
     mainlog.debug('Right click')
@@ -198,6 +200,7 @@ if __name__ == '__main__':
     # Start main app
     app = Application(master=root,screen_size=(w,h))
     
+    # Attach callbacks
     def clear_callback():
         speak(app.console.text)
         app.console.clear()
@@ -214,10 +217,9 @@ if __name__ == '__main__':
     app.mainloop()
     app.quit()
 
-    if settings.calibrate == True:
-        try:
-            remove('go.txt')
-        except WindowsError:
-            # Calibration start file not created, this is fine
-            pass
+    try:
+        remove('go.txt')
+    except WindowsError:
+        # Calibration start file not created, this is fine
+        pass
     engine.endLoop()
