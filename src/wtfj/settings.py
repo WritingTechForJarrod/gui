@@ -21,7 +21,6 @@ else:
 	letter_selection_radius = 0
 
 # Over-write standard settings with user settings
-
 try:
     from user_settings import *
 except ImportError:

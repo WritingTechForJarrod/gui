@@ -339,7 +339,7 @@ class OnscreenKeyboard(Drawable):
                     self._last_selection = ' '
                     self.process()
                 def undo():
-                    if self._page == 0:
+                    if self._page == 0 or self._page == 13:
                         self._undo()
                     else:
                         self.reset()
