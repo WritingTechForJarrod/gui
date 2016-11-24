@@ -168,10 +168,10 @@ class OnscreenKeyboard(Drawable):
         self.keys = []
 
         unattached_msg = 'called but no callback function attached'
-        self._write = lambda x: self.logger.warning('_write '+unattached_msg+', attempted to write '+str(x))
-        self._speak = lambda x: self.logger.warning('_speak '+unattached_msg+', attempted to speak '+str(x))
-        self._clear = lambda: self.logger.warning('_clear '+unattached_msg)
-        self._undo = lambda: self.logger.warning('_undo '+unattached_msg)
+        self._write = lambda x: self.logger.warning('kb._write '+unattached_msg+', attempted to write '+str(x))
+        self._speak = lambda x: self.logger.warning('kb._speak '+unattached_msg+', attempted to speak '+str(x))
+        self._clear = lambda: self.logger.warning('kb._clear '+unattached_msg)
+        self._undo = lambda: self.logger.warning('kb._undo '+unattached_msg)
 
         self._predict = predictionary
         self._last_selection = None
@@ -193,6 +193,9 @@ class OnscreenKeyboard(Drawable):
             i += 1
             self.keys.append(key)
 
+    def reset(self):
+        self._change_page()
+
     def set_rows_and_cols(self, row,col):
         self.row,self.col = row,col
 
@@ -203,21 +206,39 @@ class OnscreenKeyboard(Drawable):
         ''' Returns the current on-screen layout of the keyboard '''
         if settings.calibrate == True: 
             layout = [
-                ['a','','',''],
-                ['','b','',''],
-                ['','','c',''],
-                ['','','','d']
+                ['a','','',''], # 0
+                ['','b','',''], # 1
+                ['','','c',''], # 2
+                ['','','','d']  # 3
             ]
             self._page = self._page % len(layout)
             return layout[self._page]
         elif settings.kb_version > 1:
-            layout = [
-                ['A','H','N','U','#','.','{}','<'],
-                ['a','b','c','d','e','f','g' ,'<'],
-                ['h','i','j','k','l','m','#' ,'<'],
-                ['n','o','p','q','r','s','t' ,'<'],
-                ['u','v','w','x','y','z','#','<',]
-            ]
+            if self.col*self.row == 8:
+                layout = [
+                    ['A','H','N','U','#','.','{}','<'], # 0
+                    ['a','b','c','d','e','f','g', '<'], # 1
+                    ['h','i','j','k','l','m','#', '<'], # 2
+                    ['n','o','p','q','r','s','t', '<'], # 3
+                    ['u','v','w','x','y','z','#', '<']  # 4
+                ]
+            elif self.col*self.row == 4:
+                layout = [
+                    ['a-i','j-r','s-z','#'], # 0
+                    ['a-c','d-f','g-i','<'], # 1
+                    ['a',  'b',  'c',  '<'], # 2
+                    ['d',  'e',  'f',  '<'], # 3
+                    ['g',  'h',  'i',  '<'], # 4
+                    ['j-l','m-o','p-r','<'], # 5
+                    ['j',  'k',  'l',  '<'], # 6
+                    ['m',  'n',  'o',  '<'], # 7
+                    ['p',  'q',  'r',  '<'], # 8
+                    ['s-u','v-x','y-z','<'], # 9
+                    ['s',  't',  'u',  '<'], # 10
+                    ['v',  'w',  'x',  '<'], # 11
+                    ['y',  'z',  '',   '<'], # 12
+                    ['{}', '.',  '',   '<']  # 13
+                ]
             self._page = self._page % len(layout)
             return layout[self._page]
         else:
@@ -263,7 +284,7 @@ class OnscreenKeyboard(Drawable):
                     else:
                         self._index_history.append(index)
                         self._index_history.append(index)
-                    if settings.kb_version == 2:
+                    if settings.kb_version > 1:
                         self.process()
                 if key.text == self._last_selection and y < key.y:
                     canvas.coords(key.handle, x,y)
@@ -291,11 +312,38 @@ class OnscreenKeyboard(Drawable):
         if self._last_selection is not '':
             next_page = 0
             if settings.kb_version > 1:
-                selection_map = {'A':1,'H':2,'N':3,'U':4}
+                if self.col*self.row == 8:
+                    selection_map = {
+                        'A':1,
+                        'H':2,
+                        'N':3,
+                        'U':4
+                    }
+                elif self.col*self.row == 4:
+                    selection_map = {
+                        'a-i':1,
+                        'a-c':2,
+                        'd-f':3,
+                        'g-i':4,
+                        'j-r':5,
+                        'j-l':6,
+                        'm-o':7,
+                        'p-r':8,
+                        's-z':9,
+                        's-u':10,
+                        'v-x':11,
+                        'y-z':12,
+                        '#'  :13
+                    }
                 def add_space(): 
                     self._last_selection = ' '
                     self.process()
-                function_map = {'<':self._undo,'{}':add_space}
+                def undo():
+                    if self._page == 0:
+                        self._undo()
+                    else:
+                        self.reset()
+                function_map = {'<':undo,'{}':add_space}
                 try:
                     next_page = selection_map[self._last_selection]
                 except KeyError:
