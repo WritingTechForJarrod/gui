@@ -14,7 +14,7 @@ log_name = 'eye_coordinates.txt'
 calibrate = False
 calibration_hold_time = 20 # seconds
 
-selection_delay = 20
+selection_delay = 1 # seconds
 if selection_allowed == 1:
 	letter_selection_radius = 110
 else:

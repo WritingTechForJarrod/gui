@@ -44,17 +44,20 @@ class Application(Frame):
     def delete_stuff(self):
         self.canvas.delete(ALL)
 
+    @self_timing
     def draw_periodic(self):
         # Select mouse or eye tracker as input stream, write to log
         input_device = (self.last_mouse,self.last_eye)[settings.input_device]
         if settings.keep_coordinates_log == 1:
                 coordinates_log.write(str(input_device[0]) + "," + str(input_device[1]) + "\n")
         
-        # Draw all objects, read eye tracker stream from file if needed
+        # Read eye tracker stream from file if needed
+        if input_device is self.last_eye:
+            self.readEyeTrack('../data/eye_tests/eyeStream.txt')
+
+        # Draw all objects
         self.mutex.acquire()
         for drawable in self.drawables:
-            if input_device is self.last_eye:
-                self.readEyeTrack('../data/eye_tests/eyeStream.txt')
             drawable.update(self.canvas, input_device)
         self.mutex.release()
 
@@ -62,6 +65,7 @@ class Application(Frame):
         engine.iterate()
 
         # If in calibrate mode update time and change keyboard
+        # TODO put this mess somewhere else
         global t0
         global cal_stage
         if settings.calibrate == True:
@@ -78,18 +82,22 @@ class Application(Frame):
                         settings.calibrate = False
                         kb.reset()
 
-        # Find time since last update
-        now = time.clock()
-        self.last_dt = now - self.last_update
-        self.last_update = now
-        adjust = 50-int(1000*self.last_dt)
+        # Find refresh rate
+        if len(timelog) > 11:
+            last_10 = timelog[-11:-1]
+            last_9_diff = [last_10[i+1][1]-last_10[i][1] for i in range(0,9)]
+            app.refresh.clear()
+            app.refresh.write(str(int(9/sum(last_9_diff))))
+            
         # Call this loop again after some milliseconds
-        self.canvas.after(50+adjust//2, self.draw_periodic)
+        self.canvas.after(50, self.draw_periodic)
 
     def quit(self):
         logging.getLogger('app').debug('Exiting application...')
         self.is_alive = False
         Frame.quit(self)
+        #for line in timelog:
+        #    logging.getLogger('timing').debug(line)
 
     def createWidgets(self):
         ''' Create the base canvas, menu/selection elements, mouse/key functions '''
@@ -99,16 +107,11 @@ class Application(Frame):
         # Marker that follows mouse movement
         self.drawables.append(MouseLight(100))
 
-        # Function boxes in corner of screen
-        #if (settings.dynamic_screen == 1):
-            #self.drawables.append(FunctionBox(w-h//4,      0,     w, h//5, self.quit, fill='red'))
-            #self.drawables.append(FunctionBox(     0, 4*h//5,  h//4,    h, kb.prev_page, fill='black'))
-            #self.drawables.append(FunctionBox(w-h//4, 4*h//5,     w,    h, kb.next_page, fill='black'))
-            #self.drawables.append(FunctionBox(    0,      0,   h/4,  h/5, select_last_letter, fill='yellow'))
-
         # Upper text console and keyboard
         self.console = Text(0,0, console_font)
         self.drawables.append(self.console)
+        self.refresh = Text(w,0, console_font, justify='right')
+        self.drawables.append(self.refresh)
         kb.set_dimensions(0,h//6,w,h-h//6)
         self.drawables.append(kb)
 
@@ -118,6 +121,7 @@ class Application(Frame):
 
         self.canvas.pack()
         self.canvas.itemconfigure(self.console.handle, anchor='nw')
+        self.canvas.itemconfigure(self.refresh.handle, anchor='ne')
         self.canvas.bind("<Motion>", on_mouse_move)
         self.canvas.bind("<ButtonPress-1>", on_left_click)
         self.canvas.bind("<ButtonPress-3>", on_right_click)
@@ -197,7 +201,7 @@ if __name__ == '__main__':
     # Start speech enginge
     engine = pyttsx.init()
     engine.startLoop(False)
-    engine.setProperty('rate',80)
+    engine.setProperty('rate',100)
     mainlog.debug('Speech volume set to '+str(engine.getProperty('volume')))
 
     # Setup calibration variables
@@ -212,13 +216,13 @@ if __name__ == '__main__':
         speak(app.console.text)
         app.console.clear()
 
-    def undo_callback():
+    def delete_callback():
         app.console.text = app.console.text[0:-1]
 
     kb.attach_write_callback(app.console.write)
     kb.attach_speak_callback(speak)
     kb.attach_clear_callback(clear_callback)
-    kb.attach_undo_callback(undo_callback)
+    kb.attach_delete_callback(delete_callback)
 
     app.master.minsize(500,500)
     app.mainloop()

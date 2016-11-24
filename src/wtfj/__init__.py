@@ -9,6 +9,7 @@ import logging
 import settings
 from predictionary import Predictionary
 from filters import *
+from decorators import *
 
 def distance(pos1,pos2):
     ''' Euclidean distance '''
@@ -87,16 +88,20 @@ class FunctionBox(Drawable):
 
 class Text(Drawable):
     ''' Updateable text field '''
-    def __init__(self,x,y,font, size=5):
+    def __init__(self,x,y,font, size=5,justify='left'):
         self.x, self.y = (x,y)
         self.font = font
         self.text = ''
         self.size = size
+        self.justify = justify
 
     def draw(self, canvas):
-        self.handle = canvas.create_text(self.x,self.y, 
+        self.handle = canvas.create_text(
+            self.x,self.y, 
             text=self.text, 
-            font=self.font)
+            font=self.font,
+            justify=self.justify
+        )
 
     def update(self, canvas, pos):
         x,y = pos
@@ -144,7 +149,7 @@ class Key2(Text):
         x,y = pos
         super(Key2, self).update(canvas, (x,y))
         if distance((x,y), (self.x, self.y)) < settings.letter_selection_radius:
-            self.selection_score += 1
+            self.selection_score += timelog[-1][1]-timelog[-2][1]
         else:
             self.selection_score = 0
         if self.selection_score > settings.selection_delay:
@@ -152,7 +157,7 @@ class Key2(Text):
             self.selected = True
         else:
             self.selected = False
-        r = (self.selection_score*255) // settings.selection_delay
+        r = int((self.selection_score*255) / settings.selection_delay)
         canvas.itemconfigure(self.handle, fill=make_color(r,0,0))
 
 class OnscreenKeyboard(Drawable):
@@ -171,7 +176,7 @@ class OnscreenKeyboard(Drawable):
         self._write = lambda x: self.logger.warning('kb._write '+unattached_msg+', attempted to write '+str(x))
         self._speak = lambda x: self.logger.warning('kb._speak '+unattached_msg+', attempted to speak '+str(x))
         self._clear = lambda: self.logger.warning('kb._clear '+unattached_msg)
-        self._undo = lambda: self.logger.warning('kb._undo '+unattached_msg)
+        self._delete = lambda: self.logger.warning('kb._delete '+unattached_msg)
 
         self._predict = predictionary
         self._last_selection = None
@@ -340,7 +345,7 @@ class OnscreenKeyboard(Drawable):
                     self.process()
                 def undo():
                     if self._page == 0 or self._page == 13:
-                        self._undo()
+                        self._delete()
                     else:
                         self.reset()
                 function_map = {'<':undo,'{}':add_space}
@@ -349,11 +354,11 @@ class OnscreenKeyboard(Drawable):
                 except KeyError:
                     try:
                         function_map[self._last_selection]()
-                        settings.selection_delay += 5
+                        #settings.selection_delay += 5
                     except KeyError:
                         self._write(self._last_selection)
                         self._speak(self._last_selection)
-                        settings.selection_delay = max(1,settings.selection_delay-1)
+                        #settings.selection_delay = max(1,settings.selection_delay-1)
             else:
                 self._write(self._last_selection)
                 self._predict.process(self._last_selection) # TODO more flexible letter provider interface
@@ -400,12 +405,12 @@ class OnscreenKeyboard(Drawable):
         '''
         self._clear = clear_function
 
-    def attach_undo_callback(self, undo_function):
+    def attach_delete_callback(self, delete_function):
         '''
         Passed function is invoked when an undo command is chosen
         Undo function takes no arguments
         '''
-        self._undo = undo_function
+        self._delete = delete_function
 
     def next_page(self):
         logging.getLogger('app').debug('Turning the page forward...')
