@@ -33,6 +33,8 @@ class Cluster(object) :
       def __init__(self, points):
           self.points = points 
           self.centroid = self.computeCentroid()
+      def addlabel(self,label):
+          self.label = label
           
       def singleLinkageDist(self, other) :
           minDist = self.points[0].distance(other.points[0])
@@ -202,7 +204,7 @@ def kmeans(points, k, verbose = False) :
         for i in range(k):
             if clusters[i].update(newClusters[i]) > 0.0 :
                 converged = False 
-          
+                clusters[i].addlabel(k+1)
         numIter +=1
    
         if verbose :
@@ -294,12 +296,13 @@ def readGazeData(fName):
         except ValueError :
             pass
     return samples
-def Test() :
+def Test(fileName = None, keyboard = False) :
     points = readGazeData('combined_calibration_log.txt')
     clusters = tryKmeans(points, 4, 4, False)
     ## give each point in cluster a label [A, B, C,D]
     label = ['A', 'B', 'C', 'D']
     centroids = []
+    result_x, result_y =[], []
     marker = ['ro','bo','ko','go']
     i = 0
     #print('Final result')
@@ -307,12 +310,30 @@ def Test() :
         plotSamples(c.points,marker[i])
         i+=1
         centroids.append(c.getCentroid().getFeatures().tolist())
-    sorted_centroids = sorted(centroids, key = lambda k: [k[0],k[1]])
+    for q in centroids :
+        result_x.append(q[0])
+        result_y.append(q[1])
+    avg_x = sum(result_x)/4
+    avg_y = sum(result_y)/4
+    centroid_of_centroid =[avg_x,avg_y]
+    sorted_centroids = sorted(centroids, key = lambda k: k[0])
     #print(sorted_centroids)
     #print centroids to a file
     f = open("centroids.txt",'w')
-    for item in sorted_centroids:
-        f.write("%s\n"%item)
+    if keyboard == False :
+        for item in centroids:
+            if item[0] < avg_x and item[1] > avg_y: 
+               f.write("%s\n"%item)
+            elif item[0] > avg_x and item[1] > avg_y:
+               f.write("%s\n"%item)
+            elif item[0] < avg_x and item[1] < avg_y:
+               f.write("%s\n"%item)
+            elif item[0] > avg_x and item[1] < avg_y:
+               f.write("%s\n"%item)
+    else :
+        for item in sorted_centroids:
+            f.write("%s\n"%item)
+        
     k = 0
     
     for c in clusters :
