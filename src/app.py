@@ -81,6 +81,7 @@ class Application(Frame):
                         t0 = 0
                         settings.calibrate = False
                         kb.reset()
+                        kb.set_centroids(cluster.Test('../data/eye_tests/combined_calibration_log.txt'))
 
         # Find refresh rate
         if len(timelog) > 11:
@@ -197,6 +198,23 @@ if __name__ == '__main__':
     kb = OnscreenKeyboard(kb_font, settings.kb_shape, Predictionary('../dict/'+settings.dict_filename))
     if (settings.keep_coordinates_log == 1):
         coordinates_log = open(settings.log_name,'w')
+    '''
+    kb.set_centroids([
+        [374.8675581395352, 433.3866279069766],
+        [464.5818053596622, 848.555994358252],
+        [958.8209030100335, 476.211371237458],
+        [1540.8509732360108, 794.9254257907534]
+    ])
+    '''
+    
+    '''
+    kb.set_centroids([
+        [200,200],
+        [100,100],
+        [200,100],
+        [200,100]
+    ])
+'''
 
     # Start speech enginge
     engine = pyttsx.init()

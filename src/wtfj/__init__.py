@@ -7,6 +7,7 @@ max.prokopenko@gmail.com
 '''
 import logging
 import settings
+import cluster
 from predictionary import Predictionary
 from filters import *
 from decorators import *
@@ -53,7 +54,7 @@ class MouseLight(Drawable):
     def update(self, canvas, pos):
         x,y = self.position = pos
         r = self.radius
-        canvas.coords(self.handle, x-r, y-r, x+r, y+r)
+        canvas.coords(self.handle, int(x-r), int(y-r), int(x+r), int(y+r))
         self.i += 1 if self.countup == True else -1
         if self.i == 255:
             self.countup = False
@@ -144,14 +145,38 @@ class Key2(Text):
         super(Key2, self).__init__(x,y, font, size)
         self.selected = False
         self.selection_score = 0
+        self._centroid_x, self._centroid_y = (0,0) # x,y selection centroid
+
+    def set_centroid(self, centroid):
+        self._centroid_x, self._centroid_y = centroid
+
+    def draw(self, canvas):
+        r = settings.letter_selection_radius
+        sx,sy = (self._centroid_x,self._centroid_y)
+        self._circle_handle = canvas.create_oval(sx-r, sy-r, sx+r, sy+r, fill='gray')
+        super(Key2,self).draw(canvas)
 
     def update(self, canvas, pos):
+        ''' 
+        Checks if the selector is in the field of the key selection radius.
+        Takes the difference of the last two screen update times to calculate
+        the time since the key was last updated, if selected adds that time to the
+        selection_score counter, if not selected subtracts half that time.
+        Once selection_score reaches a set threshold the key is marked as selected
+        '''
         x,y = pos
+
+        r = settings.letter_selection_radius
+        sx,sy = (self._centroid_x,self._centroid_y)
+        canvas.coords(self._circle_handle, sx-r, sy-r, sx+r, sy+r)
+
         super(Key2, self).update(canvas, (x,y))
-        if distance((x,y), (self.x, self.y)) < settings.letter_selection_radius:
-            self.selection_score += timelog[-1][1]-timelog[-2][1]
-        else:
-            self.selection_score = 0
+        if len(timelog) >= 2:
+            if distance((x,y), (self._centroid_x, self._centroid_y)) < settings.letter_selection_radius:
+                self.selection_score += timelog[-1][1]-timelog[-2][1]
+            else:
+                self.selection_score -= (timelog[-1][1]-timelog[-2][1])/2
+                self.selection_score = max(0,self.selection_score)
         if self.selection_score > settings.selection_delay:
             self.selection_score = 0
             self.selected = True
@@ -201,6 +226,12 @@ class OnscreenKeyboard(Drawable):
     def reset(self):
         self._change_page()
 
+    def set_centroids(self, centroids):
+        try:
+            for i in range(len(self.keys)):
+                self.keys[i].set_centroid(centroids[i])
+        except IndexError:
+            self.logger.warning('Number of centroids passed does not match number of keys')
     def set_rows_and_cols(self, row,col):
         self.row,self.col = row,col
 
@@ -262,6 +293,7 @@ class OnscreenKeyboard(Drawable):
                 j = 0
                 i += 1
             key.x,key.y = (x,y)
+            key.set_centroid((key.x,key.y))
             key.draw(canvas)
             canvas.coords(key.handle, x,y)
 
@@ -413,11 +445,11 @@ class OnscreenKeyboard(Drawable):
         self._delete = delete_function
 
     def next_page(self):
-        logging.getLogger('app').debug('Turning the page forward...')
+        self.logger.debug('Turning the page forward...')
         self._change_page(self._page+1)
 
     def prev_page(self):
-        logging.getLogger('app').debug('Turning back the page...')
+        self.logger.debug('Turning back the page...')
         self._change_page(self._page-1)
 
 if __name__ == '__main__':

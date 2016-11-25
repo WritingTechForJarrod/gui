@@ -312,8 +312,10 @@ def readGazeData(fName):
 			pass
 	return samples
 
-def Test():
-	points = readGazeData('../../data/eye_tests/combined_calibration_log.txt')
+def Test(filename=None):
+	if filename is None:
+		filename = '../../data/eye_tests/combined_calibration_log.txt'
+	points = readGazeData(filename)
 	clusters = tryKmeans(points, 4, 4, False)
 	## give each point in cluster a label [A, B, C,D]
 	label = ['A', 'B', 'C', 'D']
@@ -342,7 +344,7 @@ def Test():
 	#print(clusters[2].points[0])
 	#print(clusters[3].points[0])
 	#pylab.show()
-	return clusters
+	return sorted_centroids
 
 def getGazedata(clusters):
 	data ={}  ##defined as dictionary 
