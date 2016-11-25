@@ -38,6 +38,8 @@ class Application(Frame):
         self.filter_type = MovingAverage(settings.filter_window_size)
         self.mutex = Lock()
         self.createWidgets()
+        self.last_update = time.clock()
+        self.last_dt = 0
 
     def delete_stuff(self):
         self.canvas.delete(ALL)
@@ -76,8 +78,13 @@ class Application(Frame):
                         settings.calibrate = False
                         kb.reset()
 
+        # Find time since last update
+        now = time.clock()
+        self.last_dt = now - self.last_update
+        self.last_update = now
+        adjust = 50-int(1000*self.last_dt)
         # Call this loop again after some milliseconds
-        self.canvas.after(40, self.draw_periodic)
+        self.canvas.after(50+adjust//2, self.draw_periodic)
 
     def quit(self):
         logging.getLogger('app').debug('Exiting application...')
@@ -147,7 +154,7 @@ def on_space(event):
     settings.calibrate = True
     with open('go.txt','w') as f: pass # Create go.txt flag file
     kb.reset()
-    speak('Calibrating, look at each letter')
+    speak('calibrating')
     t0 = time.clock()
     cal_stage = 0
 
