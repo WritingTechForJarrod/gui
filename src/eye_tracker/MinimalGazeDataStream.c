@@ -4,7 +4,10 @@
  * Copyright 2013-2014 Tobii Technology AB. All rights reserved.
  */
 #define _CRT_SECURE_NO_WARNINGS
-#define PROGRAM_DURATION 80 // set time in seconds here
+#define PI 3.141592654
+#define PIXEL_OFFSET 100
+#define RANDOM_PIXEL_OFFSET 300
+// File locations
 #define EYESTREAM_LOCATION "../../../../../gui/data/eye_tests/eyeStream.txt" // where we put our eye tracker output
 #define CALIBRATION_FLAG "../../../../../gui/src/go.txt" // check if this file exists to begin calibration
 #define CALIBRATION_LOG_1 "../../../../../gui/data/eye_tests/calibration_log_1.txt" // calibration log 1 path
@@ -12,6 +15,11 @@
 #define CALIBRATION_LOG_3 "../../../../../gui/data/eye_tests/calibration_log_3.txt" // calibration log 3 path
 #define CALIBRATION_LOG_4 "../../../../../gui/data/eye_tests/calibration_log_4.txt" // calibration log 4 path
 #define COMBINED_CALIBRATION "../../../../../gui/data/eye_tests/combined_calibration_log.txt"
+// Timing constants
+#define RECORD_TIME 16
+#define BUFFER_TIME 2 // defines amount of time on both sides of letter to throw away
+
+
 
 #include <Windows.h>
 #include <stdio.h>
@@ -27,7 +35,6 @@ static const TX_STRING InteractorId = "Twilight Sparkle";
 // global variables
 static TX_HANDLE g_hGlobalInteractorSnapshot = TX_EMPTY_HANDLE;
 static FILE* current_eye_coords;
-static FILE* log;
 
 // variables for calibration
 static FILE* g_calibration_log_1;
@@ -38,6 +45,11 @@ static int g_calibration_iteration = 0;
 static time_t g_calibration_start_time;
 static time_t g_current_time;
 
+// Noise variables
+static double g_positionDependentX; // between -1 and 1
+static double g_positionDependentY; // between -1 and 1
+static int g_xOffset; // between -PIXELOFFSET and PIXELOFFSET
+static int g_yOffset; // between -PIXELOFFSET and PIXELOFFSET
 
 /*
 * Check if flag (presence of go.txt) exists, if so, begin calibration
@@ -111,6 +123,29 @@ int appendFiles(char* fileName1, char* fileName2, char* fileName3, char* fileNam
 	fclose(combined);
 	return 1;
 }
+
+/*
+* Generate noise to simulate Jarrod's vision
+*/
+double generateRandom() {
+	int random = rand();
+	double return_val;
+	random = random % 200;
+	if (random > 100) {
+		random = -1*(200 - random);
+	}
+	return_val = (double)random;
+	return return_val/100;
+}
+
+/*
+* Generate standard normal distributed numbers
+*/
+/*
+double generateRandom() {
+	int var1_interim = rand()%100;
+	double var1 = var1_interim / 100;
+}*/
 
 /*
  * Initializes g_hGlobalInteractorSnapshot with an interactor that has the Gaze Point behavior.
@@ -191,7 +226,11 @@ void TX_CALLCONVENTION OnEngineConnectionStateChanged(TX_CONNECTIONSTATE connect
 void OnGazeDataEvent(TX_HANDLE hGazeDataBehavior)
 {
 	TX_GAZEPOINTDATAEVENTPARAMS eventParams;
+	float eye_x; // used for noise generation, otherwise replace with eventParams.X
+	float eye_y; // used for noise generation, otherwise replace with eventParams.Y
 	if (txGetGazePointDataEventParams(hGazeDataBehavior, &eventParams) == TX_RESULT_OK) {
+		eye_x = eventParams.X*(1+g_positionDependentX)+g_xOffset+RANDOM_PIXEL_OFFSET*generateRandom();
+		eye_y = eventParams.Y*(1+g_positionDependentY)+g_yOffset+RANDOM_PIXEL_OFFSET*generateRandom();
 		if (beginCalibration(CALIBRATION_FLAG)) {
 			if (g_calibration_iteration == 0) { // indicates first time going through process
 				// open calibration logs
@@ -206,7 +245,7 @@ void OnGazeDataEvent(TX_HANDLE hGazeDataBehavior)
 				g_calibration_iteration = 1; // set flag to 1 so that we don't initialize calibration again
 			}
 
-			if (g_current_time > g_calibration_start_time + 78) {
+			if (g_current_time > g_calibration_start_time + 7*BUFFER_TIME + 4*RECORD_TIME) {
 				// calibration done
 				g_calibration_iteration = 0; // reset flag to zero in case we want to calibrate again.
 				remove(CALIBRATION_FLAG); // removes go.txt file
@@ -219,45 +258,37 @@ void OnGazeDataEvent(TX_HANDLE hGazeDataBehavior)
 				printf("done\n");
 
 			}
-			else if (g_current_time > g_calibration_start_time + 62) {
-				fprintf(g_calibration_log_4, "%5.1f,%5.1f,%.0f\n", eventParams.X, eventParams.Y, eventParams.Timestamp);
-				printf("                                        \r");
-				printf("printing log 4, time: %ld\r", g_current_time);
+			else if (g_current_time > g_calibration_start_time + 7*BUFFER_TIME + 3*RECORD_TIME) {
+				fprintf(g_calibration_log_4, "%5.1f,%5.1f,%.0f,4\n", eventParams.X, eventParams.Y, eventParams.Timestamp);
+				//fprintf(g_calibration_log_4, "%5.1f,%5.1f,%.0f\n", eye_x, eye_y, eventParams.Timestamp);
 			}
-			else if (g_current_time > g_calibration_start_time + 58) {
+			else if (g_current_time > g_calibration_start_time + 5*BUFFER_TIME + 3*RECORD_TIME) {
 				// do nothing for 4 seconds
-				printf("                                        \r");
-				printf("chilling, time: %ld\r", g_current_time);
 			}
-			else if (g_current_time > g_calibration_start_time + 42) {
-				fprintf(g_calibration_log_3, "%5.1f,%5.1f,%.0f\n", eventParams.X, eventParams.Y, eventParams.Timestamp);
-				printf("                                        \r");
-				printf("printing log 3, time: %ld\r", g_current_time);
+			else if (g_current_time > g_calibration_start_time + 5*BUFFER_TIME + 2*RECORD_TIME) {
+				fprintf(g_calibration_log_3, "%5.1f,%5.1f,%.0f,3\n", eventParams.X, eventParams.Y, eventParams.Timestamp);
+				//fprintf(g_calibration_log_3, "%5.1f,%5.1f,%.0f\n", eye_x, eye_y, eventParams.Timestamp);
 			}
-			else if (g_current_time > g_calibration_start_time + 38) {
+			else if (g_current_time > g_calibration_start_time + 3*BUFFER_TIME + 2*RECORD_TIME) {
 				// do nothing for 4 seconds
-				printf("                                        \r");
-				printf("chilling, time: %ld\r", g_current_time);
 			}
-			else if (g_current_time > g_calibration_start_time + 22) {
-				fprintf(g_calibration_log_2, "%5.1f,%5.1f,%.0f\n", eventParams.X, eventParams.Y, eventParams.Timestamp);
-				printf("                                        \r");
-				printf("printing log 2, time: %ld\r", g_current_time);
+			else if (g_current_time > g_calibration_start_time + 3*BUFFER_TIME + RECORD_TIME) {
+				fprintf(g_calibration_log_2, "%5.1f,%5.1f,%.0f,2\n", eventParams.X, eventParams.Y, eventParams.Timestamp);
+				//fprintf(g_calibration_log_2, "%5.1f,%5.1f,%.0f\n", eye_x, eye_y, eventParams.Timestamp);
 			}
-			else if (g_current_time > g_calibration_start_time + 18) {
+			else if (g_current_time > g_calibration_start_time + BUFFER_TIME + RECORD_TIME) {
 				// do nothing for 4 seconds
-				printf("                                        \r");
-				printf("chilling, time: %ld\r", g_current_time);
 			}
-			else if (g_current_time > g_calibration_start_time + 2) {
-				fprintf(g_calibration_log_1, "%5.1f,%5.1f,%.0f\n", eventParams.X, eventParams.Y, eventParams.Timestamp);
-				printf("printing log 1, time: %ld\r", g_current_time);
+			else if (g_current_time > g_calibration_start_time + BUFFER_TIME) {
+				fprintf(g_calibration_log_1, "%5.1f,%5.1f,%.0f,1\n", eventParams.X, eventParams.Y, eventParams.Timestamp);
+				//fprintf(g_calibration_log_1, "%5.1f,%5.1f,%.0f\n", eye_x, eye_y, eventParams.Timestamp);
 			}
 			g_current_time = time(NULL);
 		}
 		//printf("\rGaze Data: (%5.1f, %5.1f) timestamp %.0f ms", eventParams.X, eventParams.Y, eventParams.Timestamp);
 		fprintf(current_eye_coords, "%5.1f, %5.1f", eventParams.X, eventParams.Y);
-		
+		//fprintf(current_eye_coords, "%5.1f, %5.1f", eye_x, eye_y);
+
 		fseek(current_eye_coords,0,SEEK_SET);
 	} else {
 	  printf("Failed to interpret gaze data event packet.");
@@ -300,9 +331,12 @@ int main(int argc, char* argv[])
 	BOOL success;
 
 	current_eye_coords= fopen(EYESTREAM_LOCATION, "w");
-	log = fopen("alex_static_1x4_letters_WOAT_2.txt", "w");
-
 	g_current_time = time(NULL); // initialize system time
+
+	g_positionDependentX = generateRandom();
+	g_positionDependentY = generateRandom();
+	g_xOffset = (int)(generateRandom()*PIXEL_OFFSET);
+	g_yOffset = (int)(generateRandom()*PIXEL_OFFSET);
 
 	// initialize and enable the context that is our link to the EyeX Engine.
 	success = txInitializeEyeX(TX_EYEXCOMPONENTOVERRIDEFLAG_NONE, NULL, NULL, NULL, NULL) == TX_RESULT_OK;
@@ -335,6 +369,5 @@ int main(int argc, char* argv[])
 	}
 
 	fclose(current_eye_coords);
-	fclose(log);
 	return 0;
 }
