@@ -322,7 +322,7 @@ class OnscreenKeyboard(Drawable):
                         self._index_history.append(index)
                         self._index_history.append(index)
                     if settings.kb_version > 1:
-                        self.process()
+                        self._process()
                 if key.text == self._last_selection and y < key.y:
                     canvas.coords(key.handle, x,y)
                 else:
@@ -339,7 +339,7 @@ class OnscreenKeyboard(Drawable):
         size = self.font['size']
         self.font.configure(size=int(size*0.9))
 
-    def process(self):
+    def _process(self):
         '''
         Outputs last selected char/key
         v1:Processes the last key pressed through the predictionary 
@@ -374,7 +374,7 @@ class OnscreenKeyboard(Drawable):
                     }
                 def add_space(): 
                     self._last_selection = ' '
-                    self.process()
+                    self._process()
                 def undo():
                     if self._page == 0 or self._page == 13:
                         self._delete()
