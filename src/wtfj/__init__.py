@@ -49,7 +49,9 @@ class MouseLight(Drawable):
         self.handle = canvas.create_oval(
             self.position[0] - self.radius, self.position[1] - self.radius,
             self.position[0] + self.radius, self.position[1] + self.radius, 
-            fill='blue')
+            fill='blue', 
+            outline='blue'
+        )
 
     def update(self, canvas, pos):
         x,y = self.position = pos
@@ -61,6 +63,7 @@ class MouseLight(Drawable):
         elif self.i == 0:
             self.countup = True
         canvas.itemconfigure(self.handle,fill=make_color(0,self.i,255-self.i))
+        canvas.itemconfigure(self.handle,outline=make_color(0,self.i,255-self.i))
 
 class FunctionBox(Drawable):
     ''' Box executes a function when moused over '''
@@ -153,7 +156,7 @@ class Key2(Text):
     def draw(self, canvas):
         r = settings.letter_selection_radius
         sx,sy = (self._centroid_x,self._centroid_y)
-        self._circle_handle = canvas.create_oval(sx-r, sy-r, sx+r, sy+r, fill='gray')
+        #self._circle_handle = canvas.create_oval(sx-r, sy-r, sx+r, sy+r, fill='#ddd', outline='white')
         super(Key2,self).draw(canvas)
 
     def update(self, canvas, pos):
@@ -168,7 +171,7 @@ class Key2(Text):
 
         r = settings.letter_selection_radius
         sx,sy = (self._centroid_x,self._centroid_y)
-        canvas.coords(self._circle_handle, sx-r, sy-r, sx+r, sy+r)
+        #canvas.coords(self._circle_handle, sx-r, sy-r, sx+r, sy+r)
 
         super(Key2, self).update(canvas, (x,y))
         if len(timelog) >= 2:
@@ -260,20 +263,20 @@ class OnscreenKeyboard(Drawable):
                 ]
             elif self.col*self.row == 4:
                 layout = [
-                    ['a-i','j-r','s-z','#'], # 0
-                    ['a-c','d-f','g-i','<'], # 1
-                    ['a',  'b',  'c',  '<'], # 2
-                    ['d',  'e',  'f',  '<'], # 3
-                    ['g',  'h',  'i',  '<'], # 4
-                    ['j-l','m-o','p-r','<'], # 5
-                    ['j',  'k',  'l',  '<'], # 6
-                    ['m',  'n',  'o',  '<'], # 7
-                    ['p',  'q',  'r',  '<'], # 8
-                    ['s-u','v-x','y-z','<'], # 9
-                    ['s',  't',  'u',  '<'], # 10
-                    ['v',  'w',  'x',  '<'], # 11
-                    ['y',  'z',  '',   '<'], # 12
-                    ['{}', '.',  '',   '<']  # 13
+                    ['ai','jr','sz','#'], # 0
+                    ['ac','df','gi','<'], # 1
+                    ['a', 'b', 'c', '<'], # 2
+                    ['d', 'e', 'f', '<'], # 3
+                    ['g', 'h', 'i', '<'], # 4
+                    ['jl','mo','pr','<'], # 5
+                    ['j', 'k', 'l', '<'], # 6
+                    ['m', 'n', 'o', '<'], # 7
+                    ['p', 'q', 'r', '<'], # 8
+                    ['su','vx','yz','<'], # 9
+                    ['s', 't', 'u', '<'], # 10
+                    ['v', 'w', 'x', '<'], # 11
+                    ['y', 'z', '',  '<'], # 12
+                    ['{}','.', '',  '<']  # 13
                 ]
             self._page = self._page % len(layout)
             return layout[self._page]
@@ -358,22 +361,23 @@ class OnscreenKeyboard(Drawable):
                     }
                 elif self.col*self.row == 4:
                     selection_map = {
-                        'a-i':1,
-                        'a-c':2,
-                        'd-f':3,
-                        'g-i':4,
-                        'j-r':5,
-                        'j-l':6,
-                        'm-o':7,
-                        'p-r':8,
-                        's-z':9,
-                        's-u':10,
-                        'v-x':11,
-                        'y-z':12,
-                        '#'  :13
+                        'ai':1,
+                        'ac':2,
+                        'df':3,
+                        'gi':4,
+                        'jr':5,
+                        'jl':6,
+                        'mo':7,
+                        'pr':8,
+                        'sz':9,
+                        'su':10,
+                        'vx':11,
+                        'yz':12,
+                        '#' :13
                     }
                 def add_space(): 
                     self._last_selection = ' '
+                    self._speak('space')
                     self.process()
                 def undo():
                     if self._page == 0 or self._page == 13:
