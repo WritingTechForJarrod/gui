@@ -81,7 +81,11 @@ class Application(Frame):
                         t0 = 0
                         settings.calibrate = False
                         kb.reset()
-                        kb.set_centroids(cluster.Test('../data/eye_tests/combined_calibration_log.txt'))
+                        l = cluster.Test('../data/eye_tests/combined_calibration_log.txt',False)
+                        for i in range(len(l)):
+                            l[i] = [int(x/1.5) for x  in l[i]]
+                        mainlog.debug(l)
+                        kb.set_centroids(l)
 
         # Find refresh rate
         if len(timelog) > 11:
@@ -105,9 +109,6 @@ class Application(Frame):
         self.canvas = Canvas(self.master, width=self.screen_w, height=self.screen_h)
         w,h = (self.screen_w, self.screen_h)
         
-        # Marker that follows mouse movement
-        self.drawables.append(MouseLight(100))
-
         # Upper text console and keyboard
         self.console = Text(0,0, console_font)
         self.drawables.append(self.console)
@@ -115,6 +116,9 @@ class Application(Frame):
         self.drawables.append(self.refresh)
         kb.set_dimensions(0,h//6,w,h-h//6)
         self.drawables.append(kb)
+
+        # Marker that follows mouse movement
+        self.drawables.append(MouseLight(10))
 
         # Initial drawing of all Drawables
         for drawable in self.drawables:
