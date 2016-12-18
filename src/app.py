@@ -53,7 +53,7 @@ class Application(Frame):
         
         # Read eye tracker stream from file if needed
         if input_device is self.last_eye:
-            self_read_eye_track('../data/eye_tests/eyeStream.txt')
+            self._read_eye_track('../data/eye_tests/eyeStream.txt')
 
         # Draw all objects
         self.mutex.acquire()
