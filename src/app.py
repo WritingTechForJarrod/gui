@@ -37,15 +37,15 @@ class Application(Frame):
         self.last_eye = (0,0)
         self.filter_type = MovingAverage(settings.filter_window_size)
         self.mutex = Lock()
-        self.createWidgets()
+        self._createWidgets()
         self.last_update = time.clock()
         self.last_dt = 0
 
-    def delete_stuff(self):
+    def _delete_stuff(self):
         self.canvas.delete(ALL)
 
     @self_timing
-    def draw_periodic(self):
+    def _draw_periodic(self):
         # Select mouse or eye tracker as input stream, write to log
         input_device = (self.last_mouse,self.last_eye)[settings.input_device]
         if settings.keep_coordinates_log == 1:
@@ -53,7 +53,7 @@ class Application(Frame):
         
         # Read eye tracker stream from file if needed
         if input_device is self.last_eye:
-            self.readEyeTrack('../data/eye_tests/eyeStream.txt')
+            self_read_eye_track('../data/eye_tests/eyeStream.txt')
 
         # Draw all objects
         self.mutex.acquire()
@@ -95,7 +95,7 @@ class Application(Frame):
             app.refresh.write(str(int(9/sum(last_9_diff))))
             
         # Call this loop again after some milliseconds
-        self.canvas.after(50, self.draw_periodic)
+        self.canvas.after(50, self._draw_periodic)
 
     def quit(self):
         logging.getLogger('app').debug('Exiting application...')
@@ -104,7 +104,7 @@ class Application(Frame):
         #for line in timelog:
         #    logging.getLogger('timing').debug(line)
 
-    def createWidgets(self):
+    def _createWidgets(self):
         ''' Create the base canvas, menu/selection elements, mouse/key functions '''
         self.canvas = Canvas(self.master, width=self.screen_w, height=self.screen_h)
         w,h = (self.screen_w, self.screen_h)
@@ -134,12 +134,12 @@ class Application(Frame):
         self.canvas.bind_all("<space>", on_space)
 
     def mainloop(self):
-        go = Thread(target=self.draw_periodic)
+        go = Thread(target=self._draw_periodic)
         go.start()
         Frame.mainloop(self)
         go.join()
 
-    def readEyeTrack(self, fileName):
+    def _read_eye_track(self, fileName):
         with open(fileName,'r') as f:
             try:
                 contents = f.readline()
@@ -177,11 +177,7 @@ def on_right_click(event):
 
 def on_left_click(event):
     mainlog.debug('Left click')
-    kb.larger() 
-
-def select_last_letter():
-    mainlog.debug('Selecting last letter')
-    kb.process()
+    kb.larger()
 
 def speak(phrase):
     engine.say(phrase)
@@ -202,23 +198,6 @@ if __name__ == '__main__':
     kb = OnscreenKeyboard(kb_font, settings.kb_shape, Predictionary('../dict/'+settings.dict_filename))
     if (settings.keep_coordinates_log == 1):
         coordinates_log = open(settings.log_name,'w')
-    '''
-    kb.set_centroids([
-        [374.8675581395352, 433.3866279069766],
-        [464.5818053596622, 848.555994358252],
-        [958.8209030100335, 476.211371237458],
-        [1540.8509732360108, 794.9254257907534]
-    ])
-    '''
-    
-    '''
-    kb.set_centroids([
-        [200,200],
-        [100,100],
-        [200,100],
-        [200,100]
-    ])
-'''
 
     # Start speech enginge
     engine = pyttsx.init()
