@@ -312,14 +312,18 @@ def readGazeData(fName):
 			pass
 	return samples
 
-def Test(filename=None):
+def Test(filename=None,keyboard=False):
 	if filename is None:
 		filename = '../../data/eye_tests/combined_calibration_log.txt'
 	points = readGazeData(filename)
 	clusters = tryKmeans(points, 4, 4, False)
 	## give each point in cluster a label [A, B, C,D]
 	label = ['A', 'B', 'C', 'D']
-	centroids = []
+	centroids = [] # centroids returned by clusters (random order)
+	l1,l2,l3,l4 = [], [], [], []
+	f_centroids = [] # sorted list of centroids (in calibration order)
+	result_x = []
+	result_y =[] 
 	marker = ['ro','bo','ko','go']
 	i = 0
 	#print('Final result')
@@ -327,12 +331,47 @@ def Test(filename=None):
 		plotSamples(c.points,marker[i])
 		i+=1
 		centroids.append(c.getCentroid().getFeatures().tolist())
+	for q in centroids:
+		result_x.append(q[0])
+		result_y.append(q[1])
+	avg_x = sum(result_x)/4
+	avg_y = sum(result_y)/4
+	#centroid_of_centroid =[avg_x,avg_y]
 	sorted_centroids = sorted(centroids, key = lambda k: [k[0],k[1]])
 	#print(sorted_centroids)
 	#print centroids to a file
 	f = open('centroids.txt','w')
-	for item in sorted_centroids:
-			f.write("%s\n"%item)
+	if keyboard == False:
+		for item in centroids:
+			if (item[0] < avg_x and item[1] < avg_y): 
+				#print("list 1 worked")
+				f.write("%s\n"%item)
+				l1.append(item)	 
+			elif (item[0] > avg_x and item[1] < avg_y):
+				#print("list 2 worked")
+				f.write("%s\n"%item)
+				l2.append(item)
+			elif (item[0] < avg_x and item[1] > avg_y):
+				#print("list 3 worked")
+				f.write("%s\n"%item)
+				l3.append(item)
+			elif (item[0] > avg_x and item[1] > avg_y):
+				#print("list 4 worked")
+				f.write("%s\n"%item)
+				l4.append(item) 
+		f_centroids = l1 + l2 +l3 + l4
+		#print("Initial centroids*********" + str(centroids))
+		#print("avg_x = " +str(avg_x) + " avg_y = " + str(avg_y))
+		#print("CLUSTERS HERE************" + str(f_centroids))
+		#pylab.show()
+		return f_centroids
+
+	else:
+		#for item in sorted_centroids:
+		#	f.write("%s\n"%item)
+		#	f_centroids.append(item)
+		return sorted_centroids
+	
 	k = 0
 	
 	for c in clusters:
@@ -343,8 +382,9 @@ def Test(filename=None):
 	#print(clusters[1].points[0])
 	#print(clusters[2].points[0])
 	#print(clusters[3].points[0])
-	#pylab.show()
-	return sorted_centroids
+
+	print (f_centroids)
+	#return f_centroids
 
 def getGazedata(clusters):
 	data ={}  ##defined as dictionary 
@@ -362,4 +402,4 @@ def Test_classify(n) :
 	print(training['selection'][n]+ ' x_coor is' + str(training['x_coor'][n])+' y_coor is' + str(training['y_coor'][n]))
 
 if __name__ == '__main__':
-	Test()
+	Test(None,False)
