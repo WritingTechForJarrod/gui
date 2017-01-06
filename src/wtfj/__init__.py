@@ -155,7 +155,7 @@ class Key2(Text):
     def draw(self, canvas):
         r = settings.letter_selection_radius
         sx,sy = (self._centroid_x,self._centroid_y)
-        #self._circle_handle = canvas.create_oval(sx-r, sy-r, sx+r, sy+r, fill='#ddd', outline='white')
+        self._circle_handle = canvas.create_oval(sx-r, sy-r, sx+r, sy+r, fill='#ddd', outline='white')
         super(Key2,self).draw(canvas)
 
     def update(self, canvas, pos):
@@ -277,6 +277,46 @@ class OnscreenKeyboard(Drawable):
                     ['y', 'z', '',  '<'], # 12
                     ['{}','.', '',  '<']  # 13
                 ]
+            elif self.col*self.row == 2:
+                if (settings.kb_uniform_selection == 1):
+                    '''Uniform tree depth layout (repeated characters in tree branches)'''
+                    layout = [
+                        ['a:z','#'], # 0
+                        ['a:m','n:z'], #1
+                        ['a:g','h:m'], #2
+                        ['a:d','e:g'], #3
+                        ['a:b','c:d'], #4
+                        ['a','b'], #5
+                        ['c','d'], #6
+                        ['e:f','f:g'], #7
+                        ['e','f'], #8
+                        ['f','g'], #9
+                        ['h:j','k:m'], #10
+                        ['h:i','i:j'], #11
+                        ['h','i'], #12
+                        ['i','j'], #13
+                        ['k:l','l:m'], #14
+                        ['k','l'], #15
+                        ['l','m'], #16
+                        ['n:t','u:z'], #17
+                        ['n:q','r:t'], #18
+                        ['n:o','p:q'], #19
+                        ['n','o'], #20
+                        ['p','q'], #21
+                        ['r:s','s:t'], #22
+                        ['r','s'], #23
+                        ['s','t'], #24
+                        ['u:w','x:z'], #25
+                        ['u:v','v:w'], #26
+                        ['u','v'], #27
+                        ['v','w'], #28
+                        ['x:y','y:z'], #29
+                        ['x','y'], #30
+                        ['y','z'], #31
+                        ['{}:<','<:.'], #32
+                        ['{}', '<'], #33
+                        ['<','.'] #34
+                    ]
             self._page = self._page % len(layout)
             return layout[self._page]
         else:
@@ -374,12 +414,50 @@ class OnscreenKeyboard(Drawable):
                         'yz':12,
                         '#' :13
                     }
+                elif self.col*self.row == 2:
+                    if (settings.kb_uniform_selection == 1):
+                        selection_map = {
+                            'a:z':1,
+                            'a:m':2,
+                            'a:g':3,
+                            'a:d':4,
+                            'a:b':5,
+                            'c:d':6,
+                            'e:g':7,
+                            'e:f':8,
+                            'f:g':9,
+                            'h:m':10,
+                            'h:j':11,
+                            'h:i':12,
+                            'i:j':13,
+                            'k:m':14,
+                            'k:l':15,
+                            'l:m':16,
+                            'n:z':17,
+                            'n:t':18,
+                            'n:q':19,
+                            'n:o':20,
+                            'p:q':21,
+                            'r:t':22,
+                            'r:s':23,
+                            's:t':24,
+                            'u:z':25,
+                            'u:w':26,
+                            'u:v':27,
+                            'v:w':28,
+                            'x:z':29,
+                            'x:y':30,
+                            'y:z':31,
+                            '#':32,
+                            '{}:<':33,
+                            '<:.':34
+                        }
                 def add_space(): 
                     self._last_selection = ' '
                     self._speak('space')
                     self.process()
                 def undo():
-                    if self._page == 0 or self._page == 13:
+                    if self._page == 0 or self._page == 13 or self._page == 33 or self._page == 34:
                         self._delete()
                     else:
                         self.reset()

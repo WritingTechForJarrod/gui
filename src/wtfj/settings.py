@@ -1,6 +1,7 @@
 kb_font_size = 200
 kb_shape = (2,4) # row, col
 kb_version = 2 # 1=dynamic keyboard, 2=static position, time-based selection
+kb_uniform_selection = 1 # 1 = uniform selection time for each letters
 
 console_font_size = 150
 dict_path = '../../dict/'
