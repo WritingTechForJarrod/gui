@@ -214,7 +214,7 @@ class OnscreenKeyboard(Drawable):
 
         i = 0
         for x in xrange(0, self.row*self.col):
-            if settings.kb_version == 2:
+            if settings.kb_version == 2 or settings.kb_version == 3:
                 key = Key2(0,0, self.font)
             else:
                 key = Key(0,0, self.font)
@@ -324,20 +324,34 @@ class OnscreenKeyboard(Drawable):
 
     def draw(self, canvas):
         ''' Draws keyboard keys evenly spaced on tk canvas '''
-        dx,dy = (self.w/self.col, self.h/self.row)
-        x0,y0 =  (self.x + dx/2, self.y + dy/2)
-        i,j = (0,0)
-        for key in self.keys:
-            y = y0 + i*dy
-            x = x0 + j*dx
-            j += 1
-            if (j % self.col == 0):
-                j = 0
-                i += 1
-            key.x,key.y = (x,y)
-            key.set_centroid((key.x,key.y))
-            key.draw(canvas)
-            canvas.coords(key.handle, x,y)
+        if (settings.kb_version == 2):
+            dx,dy = (self.w/self.col, self.h/self.row)
+            x0,y0 =  (self.x + dx/2, self.y + dy/2)
+            i,j = (0,0)
+            for key in self.keys:
+                y = y0 + i*dy
+                x = x0 + j*dx
+                j += 1
+                if (j % self.col == 0):
+                    j = 0
+                    i += 1
+                key.x,key.y = (x,y)
+                key.set_centroid((key.x,key.y))
+                key.draw(canvas)
+                canvas.coords(key.handle, x,y)
+        elif (settings.kb_version == 3):
+            if (self.row*self.col > 2):
+                raise Exception('More than two keys not yet supported for max spacing layout')
+            #loop fills keys on left edge then right edge
+            i = 0
+            offset = 225 #offset into screen from edge
+            for key in self.keys:
+                x,y = (i*self.w + offset - 2*offset*i, self.h/2)
+                key.x,key.y = (x,y)
+                key.set_centroid((key.x,key.y))
+                key.draw(canvas)
+                canvas.coords(key.handle, x,y)
+                i+=1
 
     def update(self, canvas, pos):
         ''' Checks if a key is selected and if events occur '''
