@@ -118,7 +118,7 @@ class Application(Frame):
         self.drawables.append(kb)
 
         # Marker that follows mouse movement
-        self.drawables.append(MouseLight(10))
+        self.drawables.append(MouseLight(settings.mouselight_radius))
 
         # Initial drawing of all Drawables
         for drawable in self.drawables:

@@ -14,6 +14,7 @@ keep_coordinates_log = 1 # 0 = no log kept, 1 = log kept
 log_name = 'eye_coordinates.txt'
 calibrate = False
 calibration_hold_time = 20 # seconds
+mouselight_radius = 10
 
 selection_delay = 1 # seconds
 if selection_allowed == 1:

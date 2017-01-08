@@ -143,7 +143,6 @@ class Key(Text):
 
 class Key2(Text):
     ''' Dynamic OnscreenKeyboard key '''
-    #Note: functionality for kb_version 3 built here. May warrant new class after testing with Jarrod. 
     def __init__(self, x,y, font, size=5):
         super(Key2, self).__init__(x,y, font, size)
         self.selected = False
@@ -158,19 +157,6 @@ class Key2(Text):
             r = settings.letter_selection_radius
             sx,sy = (self._centroid_x,self._centroid_y)
             self._circle_handle = canvas.create_oval(sx-r, sy-r, sx+r, sy+r, fill='#ddd', outline='white')
-            super(Key2,self).draw(canvas)
-        elif (settings.kb_version == 3):
-            #r is no longer radius, but width from closest edge of screen
-            r = settings.letter_selection_radius
-            sx,sy = (self._centroid_x,self._centroid_y)
-            ledge,redge = (0,float(canvas.cget("width"))) #ledge = left_edge, redge = right_edge
-
-            if (distance((sx,sy),(ledge,sy)) < distance((sx,sy),(redge,sy))):
-                #closer to left edge
-                self._circle_handle = canvas.create_rectangle(0, 0, r, canvas.cget("height"), fill='#ddd', outline='white')
-            else:
-                #closer to right edge               
-                self._circle_handle = canvas.create_rectangle(float(canvas.cget("width"))-r, 0, canvas.cget("width"), canvas.cget("height"), fill='#ddd', outline='white')
             super(Key2,self).draw(canvas)
 
     def update(self, canvas, pos):
@@ -190,6 +176,81 @@ class Key2(Text):
         super(Key2, self).update(canvas, (x,y))
         if len(timelog) >= 2:
             if distance((x,y), (self._centroid_x, self._centroid_y)) < settings.letter_selection_radius:
+                self.selection_score += timelog[-1][1]-timelog[-2][1]
+            else:
+                self.selection_score -= (timelog[-1][1]-timelog[-2][1])/2
+                self.selection_score = max(0,self.selection_score)
+
+        if self.selection_score > settings.selection_delay:
+            self.selection_score = 0
+            self.selected = True
+        else:
+            self.selected = False
+        r = int((self.selection_score*255) / settings.selection_delay)
+        canvas.itemconfigure(self.handle, fill=make_color(r,0,0))
+
+class Key3(Text):
+    '''Dynamic on-screen key used for max spacing layout (kb_version 3)'''
+    #Note: Currently inflexible key, specifically designed for 2 key layout on horizontal edges
+    def __init__(self, x,y, font, size=5):
+        super(Key3, self).__init__(x,y, font, size)
+        self.selected = False
+        self.selection_score = 0
+        self._centroid_x, self._centroid_y = (0,0) # x,y selection centroid
+        self._x0, self._y0 = (0,0) # upper left corner
+        self._x1, self._y1 = (0,0) # bottom right corner
+
+    def set_corners(self, uleft, bright):
+        self._x0, self._y0 = uleft
+        self._x1, self._y1 = bright
+
+    def set_centroid(self, centroid):
+        self._centroid_x, self._centroid_y = centroid
+
+    def contains(self, pos):
+        '''Determines if pos lies within the key'''
+        x,y = pos
+
+        if (x > self._x0 and x < self._x1 and y > self._y0 and y < self._y1):
+            return True
+        return False
+
+    def draw(self, canvas):
+        if (settings.kb_version == 3):
+            #r is no longer radius, but width from closest edge of screen
+            r = settings.letter_selection_radius
+            sx,sy = (self._centroid_x,self._centroid_y)
+            ledge,redge = (0,float(canvas.cget("width"))) #ledge = left_edge, redge = right_edge
+
+            if (distance((sx,sy),(ledge,sy)) < distance((sx,sy),(redge,sy))):
+                #closer to left edge
+                uleft = (0,0)
+                bright = (r,canvas.cget("height"))
+            else:
+                #closer to right edge
+                uleft = (float(canvas.cget("width"))-r, 0)
+                bright = (canvas.cget("width"), canvas.cget("height"))
+                
+            #self._circle_handle = canvas.create_rectangle(uleft, bright, fill='#ddd', outline='white')
+            self._circle_handle = canvas.create_rectangle(uleft, bright, fill='yellow', outline='white')
+            self.set_corners(uleft, bright)
+            super(Key3,self).draw(canvas)
+        else:
+            raise Exception('This key is too specific to be applied to other layouts.')
+
+    def update(self, canvas, pos):
+        ''' 
+        Checks if the selector is in the key.
+        Takes the difference of the last two screen update times to calculate
+        the time since the key was last updated, if selected adds that time to the
+        selection_score counter, if not selected subtracts half that time.
+        Once selection_score reaches a set threshold the key is marked as selected
+        '''
+        x,y = pos
+
+        super(Key3, self).update(canvas, (x,y))
+        if len(timelog) >= 2:
+            if self.contains(pos):
                 self.selection_score += timelog[-1][1]-timelog[-2][1]
             else:
                 self.selection_score -= (timelog[-1][1]-timelog[-2][1])/2
@@ -230,8 +291,10 @@ class OnscreenKeyboard(Drawable):
 
         i = 0
         for x in xrange(0, self.row*self.col):
-            if settings.kb_version == 2 or settings.kb_version == 3:
+            if settings.kb_version == 2:
                 key = Key2(0,0, self.font)
+            elif settings.kb_version == 3:
+                key = Key3(0,0,self.font)
             else:
                 key = Key(0,0, self.font)
             try:
