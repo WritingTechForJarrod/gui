@@ -143,6 +143,7 @@ class Key(Text):
 
 class Key2(Text):
     ''' Dynamic OnscreenKeyboard key '''
+    #Note: functionality for kb_version 3 built here. May warrant new class after testing with Jarrod. 
     def __init__(self, x,y, font, size=5):
         super(Key2, self).__init__(x,y, font, size)
         self.selected = False
@@ -153,10 +154,24 @@ class Key2(Text):
         self._centroid_x, self._centroid_y = centroid
 
     def draw(self, canvas):
-        r = settings.letter_selection_radius
-        sx,sy = (self._centroid_x,self._centroid_y)
-        self._circle_handle = canvas.create_oval(sx-r, sy-r, sx+r, sy+r, fill='#ddd', outline='white')
-        super(Key2,self).draw(canvas)
+        if (settings.kb_version == 2):
+            r = settings.letter_selection_radius
+            sx,sy = (self._centroid_x,self._centroid_y)
+            self._circle_handle = canvas.create_oval(sx-r, sy-r, sx+r, sy+r, fill='#ddd', outline='white')
+            super(Key2,self).draw(canvas)
+        elif (settings.kb_version == 3):
+            #r is no longer radius, but width from closest edge of screen
+            r = settings.letter_selection_radius
+            sx,sy = (self._centroid_x,self._centroid_y)
+            ledge,redge = (0,float(canvas.cget("width"))) #ledge = left_edge, redge = right_edge
+
+            if (distance((sx,sy),(ledge,sy)) < distance((sx,sy),(redge,sy))):
+                #closer to left edge
+                self._circle_handle = canvas.create_rectangle(0, 0, r, canvas.cget("height"), fill='#ddd', outline='white')
+            else:
+                #closer to right edge               
+                self._circle_handle = canvas.create_rectangle(float(canvas.cget("width"))-r, 0, canvas.cget("width"), canvas.cget("height"), fill='#ddd', outline='white')
+            super(Key2,self).draw(canvas)
 
     def update(self, canvas, pos):
         ''' 
@@ -179,6 +194,7 @@ class Key2(Text):
             else:
                 self.selection_score -= (timelog[-1][1]-timelog[-2][1])/2
                 self.selection_score = max(0,self.selection_score)
+
         if self.selection_score > settings.selection_delay:
             self.selection_score = 0
             self.selected = True
