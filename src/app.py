@@ -110,13 +110,17 @@ class Application(Frame):
         w,h = (self.screen_w, self.screen_h)
         
         # Upper text console and keyboard
-        self.console = Text(0,0, console_font)
+        if (settings.kb_version <= 2):
+            self.console = Text(0,0, console_font)
+        elif (settings.kb_version == 3):
+            self.console = Text(self.screen_w/3,self.screen_h/3, console_font)
         self.drawables.append(self.console)
         self.refresh = Text(w,0, console_font, justify='right')
         self.drawables.append(self.refresh)
         kb.set_dimensions(0,h//6,w,h-h//6)
         self.drawables.append(kb)
-
+        
+        self.drawables.append(self.console)
         # Marker that follows mouse movement
         self.drawables.append(MouseLight(settings.mouselight_radius))
 
