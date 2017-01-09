@@ -18,8 +18,6 @@ import types
 from math import atan2, pi
 from predictionary import Predictionary
 from filters import MovingAverage
-from exp_filters import ExponentialAverage
-import numpy
 import settings # user settings
 
 class Drawable(object):
@@ -276,7 +274,6 @@ class Application(Frame):
         self.last_mouse = (0,0)
         self.last_eye = (0,0)
         self.filter_type = MovingAverage(20)
-        self.filter_exp = ExponentialAverage(20)
         self.mutex = Lock()
         self.pack()
         self.createWidgets()
@@ -288,9 +285,14 @@ class Application(Frame):
         self.readEyeTrack('eyeStream.txt')
         self.mutex.acquire()
         for drawable in self.drawables:
-            drawable.update(self.canvas, self.last_eye)
+            line = log.readline()
+            points = line.split(",")
+            if (points[0] == ''):
+                quit()
+            last_point = (int(float(points[0])/1.5),int(float(points[1])/1.5))
+            drawable.update(self.canvas, last_point)
         self.mutex.release()
-        self.canvas.after(1, self.draw_periodic)
+        self.canvas.after(5, self.draw_periodic) # slowed down to visualize inputs
 
     def quit(self):
         self.is_alive = False
@@ -301,10 +303,11 @@ class Application(Frame):
         w,h = (self.screen_w, self.screen_h)
         
         self.drawables.append(MouseLight(100))
-        self.drawables.append(FunctionBox(w-h/4,     0,    w, h/5, self.quit, fill='red'))
-        self.drawables.append(FunctionBox(    0, 4*h/5,  h/4,   h, kb.prev_page, fill='black'))
-        self.drawables.append(FunctionBox(w-h/4, 4*h/5,    w,   h, kb.next_page, fill='black'))
-        self.drawables.append(FunctionBox(    0,     0,  h/4, h/5, select_last_letter, fill='yellow'))
+        if (settings.dynamic_screen == 1):
+            self.drawables.append(FunctionBox(w-h/4,     0,    w, h/5, self.quit, fill='red'))
+            self.drawables.append(FunctionBox(    0, 4*h/5,  h/4,   h, kb.prev_page, fill='black'))
+            self.drawables.append(FunctionBox(w-h/4, 4*h/5,    w,   h, kb.next_page, fill='black'))
+            self.drawables.append(FunctionBox(    0,     0,  h/4, h/5, select_last_letter, fill='yellow'))
         self.console = Text(0,0, console_font)
         self.drawables.append(self.console)
         kb.set_dimensions(0,h/4,w,4*h/8)
@@ -327,10 +330,6 @@ class Application(Frame):
         go.join()
 
     def readEyeTrack(self, fileName):
-        f_1 = open ('original_data','w')
-        f_2 = open ('simple_mav','w')
-        f_3 = open ('exp_mav','w')
-
         with open(fileName,'r') as f:
             try:
                 contents = f.readline()
@@ -338,23 +337,10 @@ class Application(Frame):
                 eye_x = int(float(x_y[0]))
                 eye_y = int(float(x_y[1]))
                 self.filter_type.calculate_average(eye_x, eye_y)
-
-##                self.last_eye = (self.filter_type.filtered_x, self.filter_type.filtered_y)
-                self.filter_exp.calculate_average(eye_x, eye_y)
-                self.last_eye = (self.filter_exp.filterd_x, self.filter_exp.filterd_y)
-                f_1.write(str(eye_x)+' '+str(eye_y))
-                f_2.write(str(self.filter_type.filtered_x)+' '+str(filter_type.filtered_y))
-                f_3.write(str(filter_exp.filterd_x)+' '+str(filter_exp.filterd_y))
-                
-
-
-               
+                self.last_eye = (self.filter_type.filtered_x, self.filter_type.filtered_y)
             except ValueError:
                 pass
-        f_1.close()
-        f_2.close()
-        f_3.close()
-        
+
 def on_mouse_move(event):
     app.last_mouse = (event.x, event.y)
 
@@ -370,6 +356,7 @@ def select_last_letter():
     kb.process()
 
 if __name__ == '__main__':
+    log = open('../../eyeCoordinatesLog1.txt', 'r')
     root = Tk()
     root.attributes("-fullscreen", True)
     w,h = (root.winfo_screenwidth(), root.winfo_screenheight())
