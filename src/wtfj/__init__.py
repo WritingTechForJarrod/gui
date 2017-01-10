@@ -492,7 +492,8 @@ class OnscreenKeyboard(Drawable):
                     ['z'], #25
                     ['{}'], #26
                     ['<'], #27
-                    ['.'] #28
+                    ['.'], #28
+                    ['a'] #29
                 ]
 
             self._page = self._page % len(layout)
@@ -537,7 +538,11 @@ class OnscreenKeyboard(Drawable):
         for key in self.keys: 
             key.update(canvas, (x,y))
             if settings.calibrate == False:
-                if key.selected == True:
+                key_next_page = False # Flag only relevant for kb_version 5
+                if (settings.kb_version == 5):
+                    if (key.next_page == True):
+                        key_next_page = True
+                if key.selected == True or key_next_page == True:
                     self._last_selection = key.text
                     index = self.keys.index(key)
                     if len(self._index_history) > 1:
@@ -556,7 +561,7 @@ class OnscreenKeyboard(Drawable):
                         self._index_history.append(index)
                         self._index_history.append(index)
                     if settings.kb_version > 1:
-                        self.process()
+                        self.process(key)
                 if key.text == self._last_selection and y < key.y:
                     canvas.coords(key.handle, x,y)
                 else:
@@ -573,7 +578,7 @@ class OnscreenKeyboard(Drawable):
         size = self.font['size']
         self.font.configure(size=int(size*0.9))
 
-    def process(self):
+    def process(self, key):
         '''
         Outputs last selected char/key
         v1:Processes the last key pressed through the predictionary 
@@ -645,37 +650,73 @@ class OnscreenKeyboard(Drawable):
                             '<:.':34
                         }
                 elif self.col*self.row == 1:
-                    selection_map = {
-                        'a':1,
-                        'b':2,
-                        'c':3,
-                        'd':4,
-                        'e':5,
-                        'f':6,
-                        'g':7,
-                        'h':8,
-                        'i':9,
-                        'j':10,
-                        'k':11,
-                        'l':12,
-                        'm':13,
-                        'n':14,
-                        'o':15,
-                        'p':16,
-                        'q':17,
-                        'r':18,
-                        's':19,
-                        't':20,
-                        'u':21,
-                        'v':22,
-                        'w':23,
-                        'x':24,
-                        'y':25,
-                        'z':26,
-                        '{}':27,
-                        '<':28,
-                        '.':0
-                    }
+                    if (settings.kb_version == 5):
+                        if (key.selected == True):
+                            selection_map = {}
+                        elif (key.next_page == True):
+                            selection_map = {
+                                'a':1,
+                                'b':2,
+                                'c':3,
+                                'd':4,
+                                'e':5,
+                                'f':6,
+                                'g':7,
+                                'h':8,
+                                'i':9,
+                                'j':10,
+                                'k':11,
+                                'l':12,
+                                'm':13,
+                                'n':14,
+                                'o':15,
+                                'p':16,
+                                'q':17,
+                                'r':18,
+                                's':19,
+                                't':20,
+                                'u':21,
+                                'v':22,
+                                'w':23,
+                                'x':24,
+                                'y':25,
+                                'z':26,
+                                '{}':27,
+                                '<':28,
+                                '.':29
+                            }
+                    else:
+                        selection_map = {
+                            'a':1,
+                            'b':2,
+                            'c':3,
+                            'd':4,
+                            'e':5,
+                            'f':6,
+                            'g':7,
+                            'h':8,
+                            'i':9,
+                            'j':10,
+                            'k':11,
+                            'l':12,
+                            'm':13,
+                            'n':14,
+                            'o':15,
+                            'p':16,
+                            'q':17,
+                            'r':18,
+                            's':19,
+                            't':20,
+                            'u':21,
+                            'v':22,
+                            'w':23,
+                            'x':24,
+                            'y':25,
+                            'z':26,
+                            '{}':27,
+                            '<':28,
+                            '.':0
+                        }
                 def add_space(): 
                     self._last_selection = ' '
                     self._speak('space')
