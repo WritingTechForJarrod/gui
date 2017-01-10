@@ -264,6 +264,70 @@ class Key3(Text):
         r = int((self.selection_score*255) / settings.selection_delay)
         canvas.itemconfigure(self.handle, fill=make_color(r,0,0))
 
+class SingleKeyTimeSelection(Text):
+    ''' Dynamic on-screen key. Designed for a single key layout. Uses time-based selection.
+    Selection region decoupled from character display'''
+    def __init__(self, x,y, font, size=5):
+        super(SingleKeyTimeSelection, self).__init__(x,y, font, size)
+        self.selected = False
+        self.next_page = False
+        self.selection_score = 0
+        self.next_page_score = 0
+        self._centroid_x, self._centroid_y = (0,0) # x,y selection centroid
+
+    def set_centroid(self, centroid):
+        self._centroid_x, self._centroid_y = centroid
+
+    def draw(self, canvas):
+        r = settings.letter_selection_radius
+        sx,sy = (self._centroid_x,self._centroid_y)
+        self._circle_handle = canvas.create_oval(sx-r, sy-r, sx+r, sy+r, fill='#ddd', outline='white')
+        super(SingleKeyTimeSelection,self).draw(canvas)
+
+    def update(self, canvas, pos):
+        ''' 
+        Checks if the selector is in the field of the key selection radius.
+        Takes the difference of the last two screen update times to calculate
+        the time since the key was last updated, if selected adds that time to the
+        selection_score counter, if not selected subtracts half that time.
+        Once selection_score reaches a set threshold the key is marked as selected.
+        Looking outside of the key selects the key, whereas looking in the key advances to
+        the next page.
+        '''
+        x,y = pos
+
+        r = settings.letter_selection_radius
+        sx,sy = (self._centroid_x,self._centroid_y)
+        #canvas.coords(self._circle_handle, sx-r, sy-r, sx+r, sy+r)
+
+        super(SingleKeyTimeSelection, self).update(canvas, (x,y))
+        if len(timelog) >= 2:
+            if distance((x,y), (self._centroid_x, self._centroid_y)) < settings.letter_selection_radius:
+                # If the gaze is within the selection radius, increment next page value
+                self.next_page_score += timelog[-1][1]-timelog[-2][1]
+                self.selection_score -= timelog[-1][1]-timelog[-2][1]
+                self.selection_score = max(0,self.selection_score)
+            else:
+                self.selection_score += timelog[-1][1]-timelog[-2][1]
+                self.next_page_score -= timelog[-1][1]-timelog[-2][1]
+                self.next_page_score = max(0,self.selection_score)
+
+        if self.selection_score > settings.selection_delay:
+            self.selection_score = 0
+            self.next_page_score = 0
+            self.selected = True
+            self.next_page = False
+        elif self.next_page_score > settings.selection_delay:
+            self.selection_score = 0
+            self.next_page_score = 0
+            self.selected = False
+            self.next_page = True
+        else:
+            self.selected = False
+            self.next_page = False
+        r = int((self.selection_score*255) / settings.selection_delay)
+        canvas.itemconfigure(self.handle, fill=make_color(r,0,0))
+
 class OnscreenKeyboard(Drawable):
     ''' Consists of a number of evenly spaced Text objects '''
     def __init__(self, font, shape, predictionary):
@@ -295,6 +359,8 @@ class OnscreenKeyboard(Drawable):
                 key = Key2(0,0, self.font)
             elif settings.kb_version == 3:
                 key = Key3(0,0,self.font)
+            elif settings.kb_version == 5:
+                key = SingleKeyTimeSelection(0,0, self.font)
             else:
                 key = Key(0,0, self.font)
             try:
@@ -396,6 +462,39 @@ class OnscreenKeyboard(Drawable):
                         ['{}', '<'], #33
                         ['<','.'] #34
                     ]
+            elif (self.col*self.row == 1):
+                layout = [
+                    ['a'], #0
+                    ['b'], #1
+                    ['c'], #2
+                    ['d'], #3
+                    ['e'], #4
+                    ['f'], #5
+                    ['g'], #6
+                    ['h'], #7
+                    ['i'], #8
+                    ['j'], #9
+                    ['k'], #10
+                    ['l'], #11
+                    ['m'], #12
+                    ['n'], #13
+                    ['o'], #14
+                    ['p'], #15
+                    ['q'], #16
+                    ['r'], #17
+                    ['s'], #18
+                    ['t'], #19
+                    ['u'], #20
+                    ['v'], #21
+                    ['w'], #22
+                    ['x'], #23
+                    ['y'], #24
+                    ['z'], #25
+                    ['{}'], #26
+                    ['<'], #27
+                    ['.'] #28
+                ]
+
             self._page = self._page % len(layout)
             return layout[self._page]
         else:
@@ -403,7 +502,7 @@ class OnscreenKeyboard(Drawable):
 
     def draw(self, canvas):
         ''' Draws keyboard keys evenly spaced on tk canvas '''
-        if (settings.kb_version == 2):
+        if (settings.kb_version == 2 or settings.kb_version == 5):
             dx,dy = (self.w/self.col, self.h/self.row)
             x0,y0 =  (self.x + dx/2, self.y + dy/2)
             i,j = (0,0)
@@ -545,12 +644,44 @@ class OnscreenKeyboard(Drawable):
                             '{}:<':33,
                             '<:.':34
                         }
+                elif self.col*self.row == 1:
+                    selection_map = {
+                        'a':1,
+                        'b':2,
+                        'c':3,
+                        'd':4,
+                        'e':5,
+                        'f':6,
+                        'g':7,
+                        'h':8,
+                        'i':9,
+                        'j':10,
+                        'k':11,
+                        'l':12,
+                        'm':13,
+                        'n':14,
+                        'o':15,
+                        'p':16,
+                        'q':17,
+                        'r':18,
+                        's':19,
+                        't':20,
+                        'u':21,
+                        'v':22,
+                        'w':23,
+                        'x':24,
+                        'y':25,
+                        'z':26,
+                        '{}':27,
+                        '<':28,
+                        '.':0
+                    }
                 def add_space(): 
                     self._last_selection = ' '
                     self._speak('space')
                     self.process()
                 def undo():
-                    if self._page == 0 or self._page == 13 or self._page == 33 or self._page == 34:
+                    if self._page == 0 or self._page == 13 or self._page == 33 or self._page == 34 or self._page == 27:
                         self._delete()
                     else:
                         self.reset()

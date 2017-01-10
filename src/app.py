@@ -110,7 +110,7 @@ class Application(Frame):
         w,h = (self.screen_w, self.screen_h)
         
         # Upper text console and keyboard
-        if (settings.kb_version <= 2):
+        if (settings.kb_version <= 2 or settings.kb_version > 3):
             self.console = Text(0,0, console_font)
         elif (settings.kb_version == 3):
             self.console = Text(self.screen_w/3,self.screen_h/3, console_font)
