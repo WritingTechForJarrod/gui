@@ -87,6 +87,25 @@ class Application(Frame):
                         mainlog.debug(l)
                         kb.set_centroids(l)
 
+        '''if settings.collect_data == True:
+            t_h = settings.calibration_hold_time
+            t = [t_h,2*t_h,3*t_h,4*t_h,5*t_h]
+            if t0 > 0:
+                dt = time.clock() - t0
+                if dt > t[cal_stage]:
+                    kb.next_page()
+                    cal_stage += 1
+                    if cal_stage >= len(t):
+                        cal_stage = 0
+                        t0 = 0
+                        settings.calibrate = False
+                        kb.reset()
+                        l = cluster.Test('../data/eye_tests/combined_calibration_log.txt',False)
+                        for i in range(len(l)):
+                            l[i] = [int(x/1.5) for x  in l[i]]
+                        mainlog.debug(l)
+                        kb.set_centroids(l)'''
+
         # Find refresh rate
         if len(timelog) > 11:
             last_10 = timelog[-11:-1]
@@ -136,6 +155,7 @@ class Application(Frame):
         self.canvas.bind("<ButtonPress-3>", on_right_click)
         self.canvas.bind_all("<Escape>", on_esc)
         self.canvas.bind_all("<space>", on_space)
+        self.canvas.bind_all("<Tab>", on_tab)
 
     def mainloop(self):
         go = Thread(target=self._draw_periodic)
@@ -165,11 +185,18 @@ def on_space(event):
     global t0
     global cal_stage
     settings.calibrate = True
-    with open('go.txt','w') as f: pass # Create go.txt flag file
+    with open('go.txt','w') as f:
+        rows,cols = settings.kb_shape
+        f.write(str(rows*cols) + "," + str(settings.calibration_hold_time)) # Create go.txt flag file
     kb.reset()
     speak('calibrating')
     t0 = time.clock()
     cal_stage = 0
+
+def on_tab(event):
+    global t0
+    global cal_stage
+    settings.collect_data = True
 
 def on_right_click(event):
     mainlog.debug('Right click')

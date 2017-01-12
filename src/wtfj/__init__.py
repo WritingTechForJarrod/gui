@@ -281,7 +281,7 @@ class SingleKeyTimeSelection(Text):
     def draw(self, canvas):
         r = settings.letter_selection_radius
         sx,sy = (self._centroid_x,self._centroid_y)
-        self._circle_handle = canvas.create_oval(sx-r, sy-r, sx+r, sy+r, fill='#ddd', outline='white')
+        self._circle_handle = canvas.create_oval(sx-r, sy-r, sx+r, sy+r, fill='yellow', outline='white')
         super(SingleKeyTimeSelection,self).draw(canvas)
 
     def update(self, canvas, pos):
@@ -521,9 +521,9 @@ class OnscreenKeyboard(Drawable):
         elif (settings.kb_version == 3):
             if (self.row*self.col > 2):
                 raise Exception('More than two keys not yet supported for max spacing layout')
-            #loop fills keys on left edge then right edge
+            # loop fills keys on left edge then right edge
             i = 0
-            offset = 225 #offset into screen from edge
+            offset = 225 # offset into screen from edge
             for key in self.keys:
                 x,y = (i*self.w + offset - 2*offset*i, i*self.h + offset//3 - 2*offset*i//3)
                 key.x,key.y = (x,y)
