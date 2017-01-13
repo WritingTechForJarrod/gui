@@ -103,7 +103,8 @@ class Text(Drawable):
             self.x,self.y, 
             text=self.text, 
             font=self.font,
-            justify=self.justify
+            justify=self.justify,
+            tags = "key_tag"
         )
 
     def update(self, canvas, pos):
@@ -156,8 +157,12 @@ class Key2(Text):
         if (settings.kb_version == 2):
             r = settings.letter_selection_radius
             sx,sy = (self._centroid_x,self._centroid_y)
-            self._circle_handle = canvas.create_oval(sx-r, sy-r, sx+r, sy+r, fill='#ddd', outline='white')
+            self._circle_handle = canvas.create_oval(sx-r, sy-r, sx+r, sy+r, fill='#ddd', outline='white', tags = "key_tag")
             super(Key2,self).draw(canvas)
+
+    def delete(self, canvas):
+        super(Key2, self).delete(canvas)
+        canvas.delete(self._circle_handle)
 
     def update(self, canvas, pos):
         ''' 
@@ -200,6 +205,10 @@ class Key3(Text):
         self._x0, self._y0 = (0,0) # upper left corner
         self._x1, self._y1 = (0,0) # bottom right corner
 
+    def delete(self, canvas):
+        super(Key3, self).delete(canvas)
+        canvas.delete(self._circle_handle)
+
     def set_corners(self, uleft, bright):
         self._x0, self._y0 = uleft
         self._x1, self._y1 = bright
@@ -216,27 +225,24 @@ class Key3(Text):
         return False
 
     def draw(self, canvas):
-        if (settings.kb_version == 3):
-            #r is no longer radius, but width from closest edge of screen
-            r = settings.letter_selection_radius
-            sx,sy = (self._centroid_x,self._centroid_y)
-            ledge,redge = (0,float(canvas.cget("width"))) #ledge = left_edge, redge = right_edge
+        #r is no longer radius, but width from closest edge of screen
+        r = settings.letter_selection_radius
+        sx,sy = (self._centroid_x,self._centroid_y)
+        ledge,redge = (0,float(canvas.cget("width"))) #ledge = left_edge, redge = right_edge
 
-            if (distance((sx,sy),(ledge,sy)) < distance((sx,sy),(redge,sy))):
-                #closer to left edge
-                uleft = (0,0)
-                bright = (r,canvas.cget("height"))
-            else:
-                #closer to right edge
-                uleft = (float(canvas.cget("width"))-r, 0)
-                bright = (canvas.cget("width"), canvas.cget("height"))
-                
-            #self._circle_handle = canvas.create_rectangle(uleft, bright, fill='#ddd', outline='white')
-            self._circle_handle = canvas.create_rectangle(uleft, bright, fill='yellow', outline='white')
-            self.set_corners(uleft, bright)
-            super(Key3,self).draw(canvas)
+        if (distance((sx,sy),(ledge,sy)) < distance((sx,sy),(redge,sy))):
+            #closer to left edge
+            uleft = (0,0)
+            bright = (r,canvas.cget("height"))
         else:
-            raise Exception('This key is too specific to be applied to other layouts.')
+            #closer to right edge
+            uleft = (float(canvas.cget("width"))-r, 0)
+            bright = (canvas.cget("width"), canvas.cget("height"))
+            
+        #self._circle_handle = canvas.create_rectangle(uleft, bright, fill='#ddd', outline='white')
+        self._circle_handle = canvas.create_rectangle(uleft, bright, fill='yellow', outline='white', tags = "key_tag")
+        self.set_corners(uleft, bright)
+        super(Key3,self).draw(canvas)
 
     def update(self, canvas, pos):
         ''' 
@@ -264,11 +270,11 @@ class Key3(Text):
         r = int((self.selection_score*255) / settings.selection_delay)
         canvas.itemconfigure(self.handle, fill=make_color(r,0,0))
 
-class SingleKeyTimeSelection(Text):
+class SingleKeyTimeSelectionKey(Text):
     ''' Dynamic on-screen key. Designed for a single key layout. Uses time-based selection.
     Selection region decoupled from character display'''
     def __init__(self, x,y, font, size=5):
-        super(SingleKeyTimeSelection, self).__init__(x,y, font, size)
+        super(SingleKeyTimeSelectionKey, self).__init__(x,y, font, size)
         self.selected = False
         self.next_page = False
         self.selection_score = 0
@@ -281,8 +287,12 @@ class SingleKeyTimeSelection(Text):
     def draw(self, canvas):
         r = settings.letter_selection_radius
         sx,sy = (self._centroid_x,self._centroid_y)
-        self._circle_handle = canvas.create_oval(sx-r, sy-r, sx+r, sy+r, fill='yellow', outline='white')
-        super(SingleKeyTimeSelection,self).draw(canvas)
+        self._circle_handle = canvas.create_oval(sx-r, sy-r, sx+r, sy+r, fill="yellow", outline="", tags = "key_tag")
+        super(SingleKeyTimeSelectionKey,self).draw(canvas)
+
+    def delete(self, canvas):
+        super(SingleKeyTimeSelectionKey, self).delete(canvas)
+        canvas.delete(self._circle_handle)
 
     def update(self, canvas, pos):
         ''' 
@@ -300,7 +310,7 @@ class SingleKeyTimeSelection(Text):
         sx,sy = (self._centroid_x,self._centroid_y)
         #canvas.coords(self._circle_handle, sx-r, sy-r, sx+r, sy+r)
 
-        super(SingleKeyTimeSelection, self).update(canvas, (x,y))
+        super(SingleKeyTimeSelectionKey, self).update(canvas, (x,y))
         if len(timelog) >= 2:
             if distance((x,y), (self._centroid_x, self._centroid_y)) < settings.letter_selection_radius:
                 # If the gaze is within the selection radius, increment next page value
@@ -328,9 +338,20 @@ class SingleKeyTimeSelection(Text):
         r = int((self.selection_score*255) / settings.selection_delay)
         canvas.itemconfigure(self.handle, fill=make_color(r,0,0))
 
+class DataCollectionKey(Text):
+    '''Key used in calibration process or for data collection'''
+    def __init__(self, x,y, font, size=5):
+        super(DataCollectionKey, self).__init__(x,y, font, size)
+        self._text = settings.cal_letter
+        self.write(self._text)
+
+    def draw(self, canvas):
+        super(DataCollectionKey,self).draw(canvas)
+
+
 class OnscreenKeyboard(Drawable):
     ''' Consists of a number of evenly spaced Text objects '''
-    def __init__(self, font, shape, predictionary):
+    def __init__(self, font, shape, predictionary, screen_w, screen_h):
         self.logger = logging.getLogger('kb')
         row,col = shape
         if not isinstance(predictionary, Predictionary):
@@ -352,6 +373,12 @@ class OnscreenKeyboard(Drawable):
         self._at_end = False
         self._page = 0
         self.font = font
+        self.standard_operation = True
+        self.calibrating = False
+        self.collecting_data = False
+        self.cal_t0 = 0
+        self.screen_w = screen_w
+        self.screen_h = screen_h
 
         i = 0
         for x in xrange(0, self.row*self.col):
@@ -360,7 +387,30 @@ class OnscreenKeyboard(Drawable):
             elif settings.kb_version == 3:
                 key = Key3(0,0,self.font)
             elif settings.kb_version == 5:
-                key = SingleKeyTimeSelection(0,0, self.font)
+                key = SingleKeyTimeSelectionKey(0,0, self.font)
+            else:
+                key = Key(0,0, self.font)
+            try:
+                key.write(self._get_arrangement()[i])
+            except IndexError as e:
+                self.logger.warning('Not enough choices to populate keyboard')
+            i += 1
+            self.keys.append(key)
+
+    def configure_calibration(self):
+        self.standard_operation = False
+        self.collecting_data = False
+        self.calibrating = True
+
+    def initialize_keys(self):
+        i = 0
+        for x in xrange(0, self.row*self.col):
+            if settings.kb_version == 2:
+                key = Key2(0,0, self.font)
+            elif settings.kb_version == 3:
+                key = Key3(0,0,self.font)
+            elif settings.kb_version == 5:
+                key = SingleKeyTimeSelectionKey(0,0, self.font)
             else:
                 key = Key(0,0, self.font)
             try:
@@ -534,41 +584,45 @@ class OnscreenKeyboard(Drawable):
 
     def update(self, canvas, pos):
         ''' Checks if a key is selected and if events occur '''
-        x,y = pos
-        for key in self.keys: 
-            key.update(canvas, (x,y))
-            if settings.calibrate == False:
-                key_next_page = False # Flag only relevant for kb_version 5
-                if (settings.kb_version == 5):
-                    if (key.next_page == True):
-                        key_next_page = True
-                if key.selected == True or key_next_page == True:
-                    self._last_selection = key.text
-                    index = self.keys.index(key)
-                    if len(self._index_history) > 1:
-                        if self._index_history[0] is not index:
-                            self._index_history[1] = self._index_history[0]
-                            self._index_history[0] = index
-                            '''
-                            if index == (self.col*self.row) - 1:
-                                print('Reached end of page')
-                                self._at_end = True
-                            elif index == 0 and self._at_end == True:
-                                self.next_page()
-                                self._at_end = False
-                            '''
+        if (self.standard_operation == True):
+            x,y = pos
+            for key in self.keys: 
+                key.update(canvas, (x,y))
+                if settings.calibrate == False:
+                    key_next_page = False # Flag only relevant for kb_version 5
+                    if (settings.kb_version == 5):
+                        if (key.next_page == True):
+                            key_next_page = True
+                    if key.selected == True or key_next_page == True:
+                        self._last_selection = key.text
+                        index = self.keys.index(key)
+                        if len(self._index_history) > 1:
+                            if self._index_history[0] is not index:
+                                self._index_history[1] = self._index_history[0]
+                                self._index_history[0] = index
+                                '''
+                                if index == (self.col*self.row) - 1:
+                                    print('Reached end of page')
+                                    self._at_end = True
+                                elif index == 0 and self._at_end == True:
+                                    self.next_page()
+                                    self._at_end = False
+                                '''
+                        else:
+                            self._index_history.append(index)
+                            self._index_history.append(index)
+                        if settings.kb_version > 1:
+                            self.process(key)
+                    if key.text == self._last_selection and y < key.y:
+                        canvas.coords(key.handle, x,y)
                     else:
-                        self._index_history.append(index)
-                        self._index_history.append(index)
-                    if settings.kb_version > 1:
-                        self.process(key)
-                if key.text == self._last_selection and y < key.y:
-                    canvas.coords(key.handle, x,y)
-                else:
-                    canvas.coords(key.handle, key.x,key.y)
+                        canvas.coords(key.handle, key.x,key.y)
+        elif (self.collecting_data == True):
+            self.collect_data(canvas)
 
     def delete(self, canvas):
         for key in self.keys: key.delete(canvas)
+        self.keys = []
 
     def larger(self):
         size = self.font['size']
@@ -761,6 +815,53 @@ class OnscreenKeyboard(Drawable):
             key.clear()
             key.write(choices[i])
             i = (i+1) % len(choices)
+
+    def configure_data_collection(self, canvas):
+        self.standard_operation = False
+        self.collecting_data = True
+        self.calibrating = False
+        #self._clear_keyboard(canvas)
+        self.delete(canvas)
+        # create the first data collection key and place it in the upper left corner of the screen
+        key = DataCollectionKey(0,0, self.font)
+        x,y = (settings.dc_dx,settings.dc_dy)
+        key.x,key.y = (x,y)
+        key.draw(canvas)
+        canvas.coords(key.handle, x,y)
+        self.keys.append(key)
+        self.cal_t0 = time.clock()
+
+    def configure_standard_operation(self, canvas):
+        self.standard_operation = True
+        self.calibrating = False
+        self.collecting_data = False
+        #self._clear_keyboard(canvas)
+        self.delete(canvas)
+        self.initialize_keys()
+        self.draw(canvas)
+
+
+    def collect_data(self,canvas):
+        dt = settings.calibration_hold_time
+        current_time = time.clock()
+        dx,dy = (settings.dc_dx, settings.dc_dy)
+        key = self.keys[0]
+        if (current_time > self.cal_t0 + 5*dt):
+            #after 5*dt seconds, restore keyboard to original format
+            self.configure_standard_operation(canvas)
+        elif (current_time > self.cal_t0 + 4*dt):
+            # after 4*dt seconds, move key to center
+            canvas.coords(key.handle, (self.screen_w//2, self.screen_h//2))
+        elif (current_time > self.cal_t0 + 3*dt):
+            # after 3*dt seconds, move key to bottom left corner
+            canvas.coords(key.handle, (dx, self.screen_h - dy))
+        elif (current_time > self.cal_t0 + 2*dt):
+            # after 2*dt seconds, move key to bottom right corner
+            canvas.coords(key.handle, (self.screen_w - dx, self.screen_h - dy))
+        elif (current_time > self.cal_t0 + dt):
+            # after dt seconds, move key to upper right corner
+            canvas.coords(key.handle, (self.screen_w - dx,dy))
+
 
     def attach_write_callback(self, write_function):
         ''' 
