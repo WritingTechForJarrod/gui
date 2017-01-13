@@ -397,11 +397,6 @@ class OnscreenKeyboard(Drawable):
             i += 1
             self.keys.append(key)
 
-    def configure_calibration(self):
-        self.standard_operation = False
-        self.collecting_data = False
-        self.calibrating = True
-
     def initialize_keys(self):
         i = 0
         for x in xrange(0, self.row*self.col):
@@ -446,6 +441,14 @@ class OnscreenKeyboard(Drawable):
             ]
             self._page = self._page % len(layout)
             return layout[self._page]
+        elif self.calibrating == True:
+            layout = [
+            ['a', '', '', '', ''], # 0
+            ['', 'b', '', '', ''], # 1
+            ['', '', 'c', '', ''], # 2
+            ['', '', '', 'd', ''], # 3
+            ['', '', '', '', 'e'], # 4
+            ]
         elif settings.kb_version > 1:
             if self.col*self.row == 8:
                 layout = [
@@ -619,6 +622,8 @@ class OnscreenKeyboard(Drawable):
                         canvas.coords(key.handle, key.x,key.y)
         elif (self.collecting_data == True):
             self.collect_data(canvas)
+        elif (self.calibrating == True):
+            self.calibrate(canvas)
 
     def delete(self, canvas):
         for key in self.keys: key.delete(canvas)
@@ -816,6 +821,17 @@ class OnscreenKeyboard(Drawable):
             key.write(choices[i])
             i = (i+1) % len(choices)
 
+    def configure_calibration(self):
+        self.standard_operation = False
+        self.collecting_data = False
+        self.calibrating = True
+        self.cal_t0 = time.clock()
+
+    def end_calibration(self):
+        self.standard_operation = True
+        self.calibrating = False
+        self.collecting_data = False
+
     def configure_data_collection(self, canvas):
         self.standard_operation = False
         self.collecting_data = True
@@ -835,7 +851,6 @@ class OnscreenKeyboard(Drawable):
         self.standard_operation = True
         self.calibrating = False
         self.collecting_data = False
-        #self._clear_keyboard(canvas)
         self.delete(canvas)
         self.initialize_keys()
         self.draw(canvas)
@@ -862,6 +877,29 @@ class OnscreenKeyboard(Drawable):
             # after dt seconds, move key to upper right corner
             canvas.coords(key.handle, (self.screen_w - dx,dy))
 
+    def calibrate(self, canvas):
+        dt = settings.calibration_hold_time
+        current_time = time.clock()
+        for key in self.keys:
+            key.clear()
+            key.update(canvas,(0,0))        
+        if (current_time > self.cal_t0 + self.row*self.col*dt):
+            self.configure_standard_operation(canvas)
+        elif (current_time > self.cal_t0 + 4*dt):
+            self.keys[4].write(settings.cal_letter)
+            self.keys[4].update(canvas,(0,0))
+        elif (current_time > self.cal_t0 + 3*dt):
+            self.keys[3].write(settings.cal_letter)
+            self.keys[3].update(canvas,(0,0))
+        elif (current_time > self.cal_t0 + 2*dt):
+            self.keys[2].write(settings.cal_letter)
+            self.keys[2].update(canvas,(0,0))
+        elif (current_time > self.cal_t0 + dt):
+            self.keys[1].write(settings.cal_letter)
+            self.keys[1].update(canvas,(0,0))
+        elif (current_time > self.cal_t0):
+            self.keys[0].write(settings.cal_letter)
+            self.keys[0].update(canvas,(0,0))
 
     def attach_write_callback(self, write_function):
         ''' 

@@ -61,7 +61,7 @@ class Application(Frame):
             drawable.update(self.canvas, input_device)
         self.mutex.release()
 
-        if (kb.collecting_data == True):
+        if (kb.collecting_data == True or kb.calibrating == True):
             app.console.clear()
 
         # Update speech engine
@@ -168,16 +168,10 @@ def on_esc(event):
     app.quit()
 
 def on_space(event):
-    global t0
-    global cal_stage
-    settings.calibrate = True
     with open('go.txt','w') as f:
         rows,cols = settings.kb_shape
         f.write(str(rows*cols) + "," + str(settings.calibration_hold_time)) # Create go.txt flag file
-    kb.reset()
-    speak('calibrating')
-    t0 = time.clock()
-    cal_stage = 0
+    kb.configure_calibration()
 
 def on_tab(event):
     with open('go.txt','w') as f:
