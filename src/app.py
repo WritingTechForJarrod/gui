@@ -142,6 +142,7 @@ class Application(Frame):
         self.canvas.bind_all("<Escape>", on_esc)
         self.canvas.bind_all("<space>", on_space)
         self.canvas.bind_all("<Tab>", on_tab)
+        self.canvas.bind_all("<1>", on_shift)
 
     def mainloop(self):
         go = Thread(target=self._draw_periodic)
@@ -163,6 +164,9 @@ class Application(Frame):
 
 def on_mouse_move(event):
     app.last_mouse = (event.x, event.y)
+
+def on_shift(event):
+    kb.move_keys = True
 
 def on_esc(event):
     app.quit()

@@ -10,6 +10,11 @@ import cluster
 from predictionary import Predictionary
 from filters import *
 from decorators import *
+from sklearn import svm, datasets
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
+import numpy as np
+from collections import Counter
 
 def distance(pos1,pos2):
     ''' Euclidean distance '''
@@ -348,6 +353,48 @@ class DataCollectionKey(Text):
     def draw(self, canvas):
         super(DataCollectionKey,self).draw(canvas)
 
+class SVMScoringKey(Text):
+    '''Key useing SVM for calibration'''
+    def __init__(self, x,y, font, size=5):
+        super(SVMScoringKey, self).__init__(x,y, font, size)
+        self.selected = False
+        self.selection_score = 0
+        self._centroid_x, self._centroid_y = (0,0) # x,y selection centroid
+        self._x0, self._y0 = (0,0) # upper left corner
+        self._x1, self._y1 = (0,0) # bottom right corner
+
+    def delete(self, canvas):
+        super(SVMScoringKey, self).delete(canvas)
+        canvas.delete(self._circle_handle)
+
+    def draw(self, canvas):
+        super(SVMScoringKey,self).draw(canvas)
+        r = settings.letter_selection_radius
+        sx,sy = (self._centroid_x,self._centroid_y)
+        self._circle_handle = canvas.create_oval(sx-r, sy-r, sx+r, sy+r, fill=None, outline="", tags = "key_tag")
+
+    def set_centroid(self, centroid):
+        pass
+
+    def update(self, canvas, pos):
+        x,y = pos
+        super(SVMScoringKey, self).update(canvas, (x,y))
+        if self.selection_score > settings.selection_delay:
+            self.selection_score = 0
+            self.selected = True
+        else:
+            self.selected = False
+        r = int((self.selection_score*255) / settings.selection_delay)
+        canvas.itemconfigure(self.handle, fill=make_color(r,0,0))
+
+    def increment_score(self):
+        if len(timelog) >= 2:
+            self.selection_score += timelog[-1][1]-timelog[-2][1]
+
+    def decrement_score(self):
+        if len(timelog) >= 2:
+            self.selection_score -= (timelog[-1][1]-timelog[-2][1])/2
+            self.selection_score = max(0,self.selection_score)
 
 class OnscreenKeyboard(Drawable):
     ''' Consists of a number of evenly spaced Text objects '''
@@ -379,6 +426,11 @@ class OnscreenKeyboard(Drawable):
         self.cal_t0 = 0
         self.screen_w = screen_w
         self.screen_h = screen_h
+        self.move_keys = False
+
+        #SVM variables
+        self.svm_window = []
+        self.svm_model = None
 
         i = 0
         for x in xrange(0, self.row*self.col):
@@ -386,6 +438,8 @@ class OnscreenKeyboard(Drawable):
                 key = Key2(0,0, self.font)
             elif settings.kb_version == 3:
                 key = Key3(0,0,self.font)
+            elif settings.kb_version == 4:
+                key = SVMScoringKey(0,0,self.font)
             elif settings.kb_version == 5:
                 key = SingleKeyTimeSelectionKey(0,0, self.font)
             else:
@@ -404,6 +458,8 @@ class OnscreenKeyboard(Drawable):
                 key = Key2(0,0, self.font)
             elif settings.kb_version == 3:
                 key = Key3(0,0,self.font)
+            elif settings.kb_version == 4:
+                key = SVMScoringKey(0,0,self.font)
             elif settings.kb_version == 5:
                 key = SingleKeyTimeSelectionKey(0,0, self.font)
             else:
@@ -545,8 +601,7 @@ class OnscreenKeyboard(Drawable):
                     ['z'], #25
                     ['{}'], #26
                     ['<'], #27
-                    ['.'], #28
-                    ['a'] #29
+                    ['a'] #28
                 ]
 
             self._page = self._page % len(layout)
@@ -571,7 +626,7 @@ class OnscreenKeyboard(Drawable):
                 key.set_centroid((key.x,key.y))
                 key.draw(canvas)
                 canvas.coords(key.handle, x,y)
-        elif (settings.kb_version == 3):
+        elif (settings.kb_version == 3 or settings.kb_version == 4):
             if (self.row*self.col > 2):
                 raise Exception('More than two keys not yet supported for max spacing layout')
             # loop fills keys on left edge then right edge
@@ -585,10 +640,18 @@ class OnscreenKeyboard(Drawable):
                 canvas.coords(key.handle, x,y)
                 i+=1
 
+
     def update(self, canvas, pos):
         ''' Checks if a key is selected and if events occur '''
+        if (self.move_key == True):
+            move_key(self,canvas,pos)
         if (self.standard_operation == True):
             x,y = pos
+            if (settings.kb_version == 4):
+                if self.svm_model != None:
+                    selected_key = self.svm_prediction(canvas, pos)
+                    if (selected_key > -1): # -1 indicates no prediction (insufficent data)
+                        self.keys[int(selected_key) - 1].increment_score()
             for key in self.keys: 
                 key.update(canvas, (x,y))
                 if settings.calibrate == False:
@@ -713,6 +776,7 @@ class OnscreenKeyboard(Drawable):
                         if (key.selected == True):
                             selection_map = {}
                         elif (key.next_page == True):
+                            #TODO: fix bug with '.' (currently always gets selected)
                             selection_map = {
                                 'a':1,
                                 'b':2,
@@ -741,8 +805,7 @@ class OnscreenKeyboard(Drawable):
                                 'y':25,
                                 'z':26,
                                 '{}':27,
-                                '<':28,
-                                '.':29
+                                '<':28
                             }
                     else:
                         selection_map = {
@@ -821,16 +884,53 @@ class OnscreenKeyboard(Drawable):
             key.write(choices[i])
             i = (i+1) % len(choices)
 
+    def gen_svm_model(self):
+        df = pd.read_csv('../data/eye_tests/combined_calibration_log.csv',sep=',')
+        X = df.iloc[:,[0,1]].values
+        #standardize feature vectors 
+        stdsc = StandardScaler()
+        X = stdsc.fit_transform(X)
+        y=df.iloc[:,3].values
+        C = 1.0  # SVM regularization parameter
+        if (settings.SVM_model_type == 1):
+            self.svm_model = svm.SVC(kernel='linear', C=C).fit(X, y)
+        elif (settings.SVM_model_type == 2):
+            self.svm_model = svm.SVC(kernel='rbf', gamma=0.7, C=C).fit(X, y)
+        elif (settings.SVM_model_type == 3):
+            self.svm_model = svm.SVC(kernel='poly', degree=3, C=C).fit(X, y)
+        elif (settings.SVM_model_type == 4):
+            self.svm_model = svm.LinearSVC(C=C).fit(X, y)
+        else:
+            raise Exception("Invalid SVM model selection")
+
+    def svm_prediction(self, canvas, pos):
+        size = settings.SVM_window_size
+        n_pos = np.array(pos)
+        #standardize it before make predictions
+        stdsc = StandardScaler()
+        n_pos = stdsc.fit_transform(pos)
+        #depend on how many points we want to look in order to make prediction
+        if len(self.svm_window) == size:
+            b = Counter(self.svm_window)
+            self.svm_window = []   #reinitialize window
+
+            return b.most_common(1)[0][0]    #output the most common class labels
+
+        else:  
+            n_pos = np.array(n_pos)
+            #standardize it before make predictions
+            stdsc = StandardScaler()
+            n_pos = stdsc.fit_transform(n_pos)
+            prediction = self.svm_model.predict(n_pos)
+      
+            self.svm_window.append(str(prediction[0]))
+            return -1
+
     def configure_calibration(self):
         self.standard_operation = False
         self.collecting_data = False
         self.calibrating = True
         self.cal_t0 = time.clock()
-
-    def end_calibration(self):
-        self.standard_operation = True
-        self.calibrating = False
-        self.collecting_data = False
 
     def configure_data_collection(self, canvas):
         self.standard_operation = False
@@ -855,14 +955,14 @@ class OnscreenKeyboard(Drawable):
         self.initialize_keys()
         self.draw(canvas)
 
-
     def collect_data(self,canvas):
         dt = settings.calibration_hold_time
         current_time = time.clock()
         dx,dy = (settings.dc_dx, settings.dc_dy)
         key = self.keys[0]
-        if (current_time > self.cal_t0 + 5*dt):
+        if (current_time > self.cal_t0 + 5*dt + 2):
             #after 5*dt seconds, restore keyboard to original format
+            # Note: 2 second buffer is used to ensure c is done compiling calibration logs
             self.configure_standard_operation(canvas)
         elif (current_time > self.cal_t0 + 4*dt):
             # after 4*dt seconds, move key to center
@@ -877,6 +977,11 @@ class OnscreenKeyboard(Drawable):
             # after dt seconds, move key to upper right corner
             canvas.coords(key.handle, (self.screen_w - dx,dy))
 
+    def move_key(self, canvas, pos):
+        for key in self.keys:
+            canvas.coords(key.handle, pos)
+        self.move_key = False
+
     def calibrate(self, canvas):
         dt = settings.calibration_hold_time
         current_time = time.clock()
@@ -885,6 +990,8 @@ class OnscreenKeyboard(Drawable):
             key.update(canvas,(0,0))        
         if (current_time > self.cal_t0 + self.row*self.col*dt):
             self.configure_standard_operation(canvas)
+            if (settings.kb_version == 4):
+                self.gen_svm_model()
         elif (current_time > self.cal_t0 + 4*dt):
             self.keys[4].write(settings.cal_letter)
             self.keys[4].update(canvas,(0,0))

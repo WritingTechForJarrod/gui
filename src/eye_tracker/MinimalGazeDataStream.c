@@ -15,7 +15,7 @@
 #define CALIBRATION_LOG_3 "../../../../../gui/data/eye_tests/calibration_log_3.txt" // calibration log 3 path
 #define CALIBRATION_LOG_4 "../../../../../gui/data/eye_tests/calibration_log_4.txt" // calibration log 4 path
 #define CALIBRATION_LOG_5 "../../../../../gui/data/eye_tests/calibration_log_5.txt" // calibration log 5 path
-#define COMBINED_CALIBRATION "../../../../../gui/data/eye_tests/combined_calibration_log.txt"
+#define COMBINED_CALIBRATION "../../../../../gui/data/eye_tests/combined_calibration_log.csv"
 // Timing constants
 //#define RECORD_TIME 3
 #define BUFFER_TIME 2 // defines amount of time on both sides of letter to throw away
@@ -139,6 +139,7 @@ int appendFiles(char* fileName1, char* fileName2, char* fileName3, char* fileNam
 		return 0;
 	}
 
+	fprintf(combined, "1,2,3,4\n");
 	// all 6 logs opened successfully
 	while (fgets(str, 60, file1) != NULL) {
 		fprintf(combined, str);

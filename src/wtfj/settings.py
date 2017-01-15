@@ -19,6 +19,8 @@ mouselight_radius = 10
 dc_dx = 100 # data collection x offset from edges
 dc_dy = 100 # data collection y offset from edges
 cal_letter = 'v'
+SVM_window_size = 10
+SVM_model_type = 1 # 1 = linear, 2 = rbf, 3 = poly, 4 = Linear2
 
 selection_delay = 1 # seconds
 if selection_allowed == 1:
