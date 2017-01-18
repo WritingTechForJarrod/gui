@@ -37,31 +37,38 @@ class Application(Frame):
         self.last_eye = (0,0)
         self.filter_type = MovingAverage(settings.filter_window_size)
         self.mutex = Lock()
-        self.createWidgets()
+        self._createWidgets()
         self.last_update = time.clock()
         self.last_dt = 0
 
-    def delete_stuff(self):
+    def _delete_stuff(self):
         self.canvas.delete(ALL)
 
-    def draw_periodic(self):
+    @self_timing
+    def _draw_periodic(self):
         # Select mouse or eye tracker as input stream, write to log
         input_device = (self.last_mouse,self.last_eye)[settings.input_device]
         if settings.keep_coordinates_log == 1:
                 coordinates_log.write(str(input_device[0]) + "," + str(input_device[1]) + "\n")
         
-        # Draw all objects, read eye tracker stream from file if needed
+        # Read eye tracker stream from file if needed
+        if input_device is self.last_eye:
+            self._read_eye_track('../data/eye_tests/eyeStream.txt')
+
+        # Draw all objects
         self.mutex.acquire()
         for drawable in self.drawables:
-            if input_device is self.last_eye:
-                self.readEyeTrack('../data/eye_tests/eyeStream.txt')
             drawable.update(self.canvas, input_device)
         self.mutex.release()
+
+        if (kb.collecting_data == True or kb.calibrating == True):
+            app.console.clear()
 
         # Update speech engine
         engine.iterate()
 
         # If in calibrate mode update time and change keyboard
+        # TODO put this mess somewhere else
         global t0
         global cal_stage
         if settings.calibrate == True:
@@ -77,40 +84,50 @@ class Application(Frame):
                         t0 = 0
                         settings.calibrate = False
                         kb.reset()
+                        l = cluster.Test('../data/eye_tests/combined_calibration_log.txt',False)
+                        for i in range(len(l)):
+                            l[i] = [int(x/1.5) for x  in l[i]]
+                        mainlog.debug(l)
+                        kb.set_centroids(l)
 
-        # Find time since last update
-        now = time.clock()
-        self.last_dt = now - self.last_update
-        self.last_update = now
-        adjust = 50-int(1000*self.last_dt)
+
+        # Find refresh rate
+        '''if len(timelog) > 11:
+            last_10 = timelog[-11:-1]
+            last_9_diff = [last_10[i+1][1]-last_10[i][1] for i in range(0,9)]
+            app.refresh.clear()
+            app.refresh.write(str(int(9/sum(last_9_diff))))'''
+            
         # Call this loop again after some milliseconds
-        self.canvas.after(50+adjust//2, self.draw_periodic)
+        self.canvas.after(50, self._draw_periodic)
 
     def quit(self):
         logging.getLogger('app').debug('Exiting application...')
         self.is_alive = False
         Frame.quit(self)
+        #for line in timelog:
+        #    logging.getLogger('timing').debug(line)
 
-    def createWidgets(self):
+    def _createWidgets(self):
         ''' Create the base canvas, menu/selection elements, mouse/key functions '''
         self.canvas = Canvas(self.master, width=self.screen_w, height=self.screen_h)
         w,h = (self.screen_w, self.screen_h)
+        self.mouse = MouseLight(settings.mouselight_radius)
         
-        # Marker that follows mouse movement
-        self.drawables.append(MouseLight(100))
-
-        # Function boxes in corner of screen
-        #if (settings.dynamic_screen == 1):
-            #self.drawables.append(FunctionBox(w-h//4,      0,     w, h//5, self.quit, fill='red'))
-            #self.drawables.append(FunctionBox(     0, 4*h//5,  h//4,    h, kb.prev_page, fill='black'))
-            #self.drawables.append(FunctionBox(w-h//4, 4*h//5,     w,    h, kb.next_page, fill='black'))
-            #self.drawables.append(FunctionBox(    0,      0,   h/4,  h/5, select_last_letter, fill='yellow'))
-
         # Upper text console and keyboard
-        self.console = Text(0,0, console_font)
+        if (settings.kb_version <= 2 or settings.kb_version > 3):
+            self.console = Text(0,0, console_font)
+        elif (settings.kb_version == 3):
+            self.console = Text(self.screen_w/3,self.screen_h/3, console_font)
         self.drawables.append(self.console)
+        #self.refresh = Text(w,0, console_font, justify='right')
+        #self.drawables.append(self.refresh)
         kb.set_dimensions(0,h//6,w,h-h//6)
         self.drawables.append(kb)
+        
+        self.drawables.append(self.console)
+        # Marker that follows mouse movement
+        self.drawables.append(self.mouse)
 
         # Initial drawing of all Drawables
         for drawable in self.drawables:
@@ -118,19 +135,22 @@ class Application(Frame):
 
         self.canvas.pack()
         self.canvas.itemconfigure(self.console.handle, anchor='nw')
+        #self.canvas.itemconfigure(self.refresh.handle, anchor='ne')
         self.canvas.bind("<Motion>", on_mouse_move)
         self.canvas.bind("<ButtonPress-1>", on_left_click)
         self.canvas.bind("<ButtonPress-3>", on_right_click)
         self.canvas.bind_all("<Escape>", on_esc)
         self.canvas.bind_all("<space>", on_space)
+        self.canvas.bind_all("<Tab>", on_tab)
+        self.canvas.bind_all("<1>", on_shift)
 
     def mainloop(self):
-        go = Thread(target=self.draw_periodic)
+        go = Thread(target=self._draw_periodic)
         go.start()
         Frame.mainloop(self)
         go.join()
 
-    def readEyeTrack(self, fileName):
+    def _read_eye_track(self, fileName):
         with open(fileName,'r') as f:
             try:
                 contents = f.readline()
@@ -145,18 +165,23 @@ class Application(Frame):
 def on_mouse_move(event):
     app.last_mouse = (event.x, event.y)
 
+def on_shift(event):
+    kb.move_keys = True
+
 def on_esc(event):
     app.quit()
 
 def on_space(event):
-    global t0
-    global cal_stage
-    settings.calibrate = True
-    with open('go.txt','w') as f: pass # Create go.txt flag file
-    kb.reset()
-    speak('calibrating')
-    t0 = time.clock()
-    cal_stage = 0
+    with open('go.txt','w') as f:
+        rows,cols = settings.kb_shape
+        f.write(str(rows*cols) + "," + str(settings.calibration_hold_time)) # Create go.txt flag file
+    kb.configure_calibration()
+
+def on_tab(event):
+    with open('go.txt','w') as f:
+        rows,cols = settings.kb_shape
+        f.write("5," + str(settings.calibration_hold_time)) # Create go.txt flag file (hardcode 5 for data collection)
+    kb.configure_data_collection(app.canvas)
 
 def on_right_click(event):
     mainlog.debug('Right click')
@@ -168,11 +193,7 @@ def on_right_click(event):
 
 def on_left_click(event):
     mainlog.debug('Left click')
-    kb.larger() 
-
-def select_last_letter():
-    mainlog.debug('Selecting last letter')
-    kb.process()
+    kb.larger()
 
 def speak(phrase):
     engine.say(phrase)
@@ -190,14 +211,14 @@ if __name__ == '__main__':
     mainlog = logging.getLogger('main')
     console_font = font.Font(family='Helvetica',size=settings.console_font_size, weight='bold')
     kb_font = font.Font(family='Helvetica',size=settings.kb_font_size, weight='bold')
-    kb = OnscreenKeyboard(kb_font, settings.kb_shape, Predictionary('../dict/'+settings.dict_filename))
+    kb = OnscreenKeyboard(kb_font, settings.kb_shape, Predictionary('../dict/'+settings.dict_filename), w, h)
     if (settings.keep_coordinates_log == 1):
         coordinates_log = open(settings.log_name,'w')
 
     # Start speech enginge
     engine = pyttsx.init()
     engine.startLoop(False)
-    engine.setProperty('rate',80)
+    engine.setProperty('rate',100)
     mainlog.debug('Speech volume set to '+str(engine.getProperty('volume')))
 
     # Setup calibration variables
@@ -212,13 +233,13 @@ if __name__ == '__main__':
         speak(app.console.text)
         app.console.clear()
 
-    def undo_callback():
+    def delete_callback():
         app.console.text = app.console.text[0:-1]
 
     kb.attach_write_callback(app.console.write)
     kb.attach_speak_callback(speak)
     kb.attach_clear_callback(clear_callback)
-    kb.attach_undo_callback(undo_callback)
+    kb.attach_delete_callback(delete_callback)
 
     app.master.minsize(500,500)
     app.mainloop()
