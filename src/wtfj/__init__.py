@@ -7,6 +7,8 @@ max.prokopenko@gmail.com
 import logging
 import settings
 import cluster
+import winsound
+import thread
 from predictionary import Predictionary
 from filters import *
 from decorators import *
@@ -396,6 +398,91 @@ class SVMScoringKey(Text):
             self.selection_score -= (timelog[-1][1]-timelog[-2][1])/2
             self.selection_score = max(0,self.selection_score)
 
+class AudioKey(Text):
+    '''When displayed on screen, key speaks its text value. No on-screen presence, only audio feedback'''
+    def __init__(self, x,y, font, size=5):
+        super(AudioKey, self).__init__(x,y, font, size)
+        self.selected = False
+        self.next_page = False
+        self.next_page_score = 0
+        self._centroid_x, self._centroid_y = (0,0) # x,y selection centroid
+        self.last_pos = None
+        self.phase1 = False
+        self.phase2 = False
+        self.preselect = False
+
+        self.point_history = []
+
+        if (settings.selection_delay > 1):
+            self.point_history_length = 7
+        else:
+            self.point_history_length = 4
+
+    def set_centroid(self, centroid):
+        self._centroid_x, self._centroid_y = centroid
+
+    def draw(self, canvas):
+        r = settings.letter_selection_radius
+        sx,sy = (self._centroid_x,self._centroid_y)
+        self._circle_handle = canvas.create_oval(sx-r, sy-r, sx+r, sy+r, fill='', outline="", tags = "key_tag")
+        super(AudioKey,self).draw(canvas)
+
+    def delete(self, canvas):
+        super(AudioKey, self).delete(canvas)
+        canvas.delete(self._circle_handle)
+
+    def update(self, canvas, pos):
+        ''' 
+        Cycles through letters at rate specified by settings.selection_delay. Checks if on-screen vision has been recorded.
+        '''
+        x,y = pos
+
+        if(len(self.point_history) < self.point_history_length):
+            self.point_history = [pos] + self.point_history
+        else:
+            self.point_history = [pos] + self.point_history[0:len(self.point_history)-1]
+        
+        super(AudioKey, self).update(canvas, (x,y))
+        if len(timelog) >= 2:
+            # always keeping track of time
+            self.next_page_score += timelog[-1][1]-timelog[-2][1]
+
+        # To be selected, we need an OFF-ON-OFF pattern
+        #if (self.phase1 == False and self.last_pos == pos and self.last_pos != None):
+        if (self.phase1 == False and len(self.point_history) == self.point_history_length):
+            self.phase1 = True
+            for val in self.point_history:
+                if val != pos:
+                    self.phase1 = False
+                    break
+            # No motion phase observed
+        elif (self.phase1 == True and self.last_pos != pos):
+            # Motion observed after phase 1 of no motion
+            self.phase2 = True
+            self.preselect = True
+        '''elif (self.phase2 == True and self.last_pos == pos):
+            # No motion observed after phase 2 stage of motion
+            self.preselect = True'''
+
+        if self.next_page_score > settings.selection_delay + .5: #.5 is time to play audio file
+            # if preselect is true after delay time, select key. Otherwise, move to next page
+            if (self.preselect == False):
+                self.selected = False
+                self.next_page = True
+            else:
+                self.selected = True
+                self.next_page = False
+
+            self.next_page_score = 0
+            # reset motion tracking variables
+            self.phase1 = False
+            self.phase2 = False
+            self.preselect = False
+        else:
+            self.selected = False
+            self.next_page = False
+        self.last_pos = pos
+
 class OnscreenKeyboard(Drawable):
     ''' Consists of a number of evenly spaced Text objects '''
     def __init__(self, font, shape, predictionary, screen_w, screen_h):
@@ -432,24 +519,7 @@ class OnscreenKeyboard(Drawable):
         self.svm_window = []
         self.svm_model = None
 
-        i = 0
-        for x in xrange(0, self.row*self.col):
-            if settings.kb_version == 2:
-                key = Key2(0,0, self.font)
-            elif settings.kb_version == 3:
-                key = Key3(0,0,self.font)
-            elif settings.kb_version == 4:
-                key = SVMScoringKey(0,0,self.font)
-            elif settings.kb_version == 5:
-                key = SingleKeyTimeSelectionKey(0,0, self.font)
-            else:
-                key = Key(0,0, self.font)
-            try:
-                key.write(self._get_arrangement()[i])
-            except IndexError as e:
-                self.logger.warning('Not enough choices to populate keyboard')
-            i += 1
-            self.keys.append(key)
+        self.initialize_keys()
 
     def initialize_keys(self):
         i = 0
@@ -462,6 +532,8 @@ class OnscreenKeyboard(Drawable):
                 key = SVMScoringKey(0,0,self.font)
             elif settings.kb_version == 5:
                 key = SingleKeyTimeSelectionKey(0,0, self.font)
+            elif settings.kb_version == 7:
+                key = AudioKey(0,0,self.font)
             else:
                 key = Key(0,0, self.font)
             try:
@@ -571,7 +643,7 @@ class OnscreenKeyboard(Drawable):
                         ['{}', '<'], #33
                         ['<','.'] #34
                     ]
-            elif (self.col*self.row == 1):
+            elif (self.col*self.row == 1 or settings.kb_version == 7):
                 layout = [
                     ['a'], #0
                     ['b'], #1
@@ -639,12 +711,18 @@ class OnscreenKeyboard(Drawable):
                 key.draw(canvas)
                 canvas.coords(key.handle, x,y)
                 i+=1
+        elif (settings.kb_version == 7):
+            key = self.keys[0]
+            #x,y = (self.w//2, self.h//2)
+            x,y = (-200, -200)
+            key.x,key.y = (x,y)
+            key.set_centroid((key.x,key.y))
+            key.draw(canvas)
+            canvas.coords(key.handle,x,y)
 
 
     def update(self, canvas, pos):
         ''' Checks if a key is selected and if events occur '''
-        if (self.move_key == True):
-            move_key(self,canvas,pos)
         if (self.standard_operation == True):
             x,y = pos
             if (settings.kb_version == 4):
@@ -656,7 +734,7 @@ class OnscreenKeyboard(Drawable):
                 key.update(canvas, (x,y))
                 if settings.calibrate == False:
                     key_next_page = False # Flag only relevant for kb_version 5
-                    if (settings.kb_version == 5):
+                    if (settings.kb_version == 5 or settings.kb_version == 7):
                         if (key.next_page == True):
                             key_next_page = True
                     if key.selected == True or key_next_page == True:
@@ -666,14 +744,6 @@ class OnscreenKeyboard(Drawable):
                             if self._index_history[0] is not index:
                                 self._index_history[1] = self._index_history[0]
                                 self._index_history[0] = index
-                                '''
-                                if index == (self.col*self.row) - 1:
-                                    print('Reached end of page')
-                                    self._at_end = True
-                                elif index == 0 and self._at_end == True:
-                                    self.next_page()
-                                    self._at_end = False
-                                '''
                         else:
                             self._index_history.append(index)
                             self._index_history.append(index)
@@ -687,6 +757,61 @@ class OnscreenKeyboard(Drawable):
             self.collect_data(canvas)
         elif (self.calibrating == True):
             self.calibrate(canvas)
+
+    def speak_character(self, character):
+        if (character == 'a'):
+            winsound.PlaySound('audio_files/a_sound.wav',winsound.SND_FILENAME)
+        elif (character == 'b'):
+            winsound.PlaySound('audio_files/b_sound.wav',winsound.SND_FILENAME)
+        elif (character == 'c'):
+            winsound.PlaySound('audio_files/c_sound.wav',winsound.SND_FILENAME)
+        elif (character == 'd'):
+            winsound.PlaySound('audio_files/d_sound.wav',winsound.SND_FILENAME)
+        elif (character == 'e'):
+            winsound.PlaySound('audio_files/e_sound.wav',winsound.SND_FILENAME)
+        elif (character == 'f'):
+            winsound.PlaySound('audio_files/f_sound.wav',winsound.SND_FILENAME)
+        elif (character == 'g'):
+            winsound.PlaySound('audio_files/g_sound.wav',winsound.SND_FILENAME)
+        elif (character == 'h'):
+            winsound.PlaySound('audio_files/h_sound.wav',winsound.SND_FILENAME)
+        elif (character == 'i'):
+            winsound.PlaySound('audio_files/i_sound.wav',winsound.SND_FILENAME)
+        elif (character == 'j'):
+            winsound.PlaySound('audio_files/j_sound.wav',winsound.SND_FILENAME)
+        elif (character == 'k'):
+            winsound.PlaySound('audio_files/k_sound.wav',winsound.SND_FILENAME)
+        elif (character == 'l'):
+            winsound.PlaySound('audio_files/l_sound.wav',winsound.SND_FILENAME)
+        elif (character == 'm'):
+            winsound.PlaySound('audio_files/m_sound.wav',winsound.SND_FILENAME)
+        elif (character == 'n'):
+            winsound.PlaySound('audio_files/n_sound.wav',winsound.SND_FILENAME)
+        elif (character == 'o'):
+            winsound.PlaySound('audio_files/o_sound.wav',winsound.SND_FILENAME)
+        elif (character == 'p'):
+            winsound.PlaySound('audio_files/p_sound.wav',winsound.SND_FILENAME)
+        elif (character == 'q'):
+            winsound.PlaySound('audio_files/q_sound.wav',winsound.SND_FILENAME)
+        elif (character == 'r'):
+            winsound.PlaySound('audio_files/r_sound.wav',winsound.SND_FILENAME)
+        elif (character == 's'):
+            winsound.PlaySound('audio_files/s_sound.wav',winsound.SND_FILENAME)
+        elif (character == 't'):
+            winsound.PlaySound('audio_files/t_sound.wav',winsound.SND_FILENAME)
+        elif (character == 'u'):
+            winsound.PlaySound('audio_files/u_sound.wav',winsound.SND_FILENAME)
+        elif (character == 'v'):
+            winsound.PlaySound('audio_files/v_sound.wav',winsound.SND_FILENAME)
+        elif (character == 'w'):
+            winsound.PlaySound('audio_files/w_sound.wav',winsound.SND_FILENAME)
+        elif (character == 'x'):
+            winsound.PlaySound('audio_files/x_sound.wav',winsound.SND_FILENAME)
+        elif (character == 'y'):
+            winsound.PlaySound('audio_files/y_sound.wav',winsound.SND_FILENAME)
+        elif (character == 'z'):
+            winsound.PlaySound('audio_files/z_sound.wav',winsound.SND_FILENAME)
+
 
     def delete(self, canvas):
         for key in self.keys: key.delete(canvas)
@@ -772,7 +897,7 @@ class OnscreenKeyboard(Drawable):
                             '<:.':34
                         }
                 elif self.col*self.row == 1:
-                    if (settings.kb_version == 5):
+                    if (settings.kb_version == 5 or settings.kb_version == 7):
                         if (key.selected == True):
                             selection_map = {}
                         elif (key.next_page == True):
@@ -857,7 +982,8 @@ class OnscreenKeyboard(Drawable):
                         #settings.selection_delay += 5
                     except KeyError:
                         self._write(self._last_selection)
-                        self._speak(self._last_selection)
+                        if (settings.kb_version != 7):
+                            self._speak(self._last_selection)
                         #settings.selection_delay = max(1,settings.selection_delay-1)
             else:
                 self._write(self._last_selection)
@@ -883,6 +1009,9 @@ class OnscreenKeyboard(Drawable):
             key.clear()
             key.write(choices[i])
             i = (i+1) % len(choices)
+            if (settings.kb_version == 7):
+                thread.start_new_thread (self.speak_character, (choices[i],))
+                #self.speak_character(choices[i])
 
     def gen_svm_model(self):
         df = pd.read_csv('../data/eye_tests/combined_calibration_log.csv',sep=',')
@@ -976,11 +1105,6 @@ class OnscreenKeyboard(Drawable):
         elif (current_time > self.cal_t0 + dt):
             # after dt seconds, move key to upper right corner
             canvas.coords(key.handle, (self.screen_w - dx,dy))
-
-    def move_key(self, canvas, pos):
-        for key in self.keys:
-            canvas.coords(key.handle, pos)
-        self.move_key = False
 
     def calibrate(self, canvas):
         dt = settings.calibration_hold_time

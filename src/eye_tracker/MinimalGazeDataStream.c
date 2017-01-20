@@ -355,7 +355,7 @@ void OnGazeDataEvent(TX_HANDLE hGazeDataBehavior)
 			}
 			g_current_time = time(NULL);
 		}
-		//printf("\rGaze Data: (%5.1f, %5.1f) timestamp %.0f ms", eventParams.X, eventParams.Y, eventParams.Timestamp);
+		//printf("/rGaze Data: (%5.1f, %5.1f) timestamp %.0f ms", eventParams.X, eventParams.Y, eventParams.Timestamp);
 		fprintf(current_eye_coords, "%5.1f, %5.1f", eventParams.X, eventParams.Y);
 
 		fseek(current_eye_coords,0,SEEK_SET);
