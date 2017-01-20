@@ -10,10 +10,13 @@ import cluster
 from predictionary import Predictionary
 from filters import *
 from decorators import *
-from sklearn import svm, datasets
-import pandas as pd
-from sklearn.preprocessing import StandardScaler
-import numpy as np
+try:
+    from sklearn import svm, datasets
+    import pandas as pd
+    from sklearn.preprocessing import StandardScaler
+    import numpy as np
+except ImportError:
+    logging.warning('Machine learning imports failed in wtf/init.pyb')
 from collections import Counter
 
 def distance(pos1,pos2):
