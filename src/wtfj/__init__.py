@@ -10,6 +10,11 @@ import cluster
 from predictionary import Predictionary
 from filters import *
 from decorators import *
+from sklearn import svm, datasets
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
+import numpy as np
+from collections import Counter
 
 def distance(pos1,pos2):
     ''' Euclidean distance '''
@@ -103,7 +108,8 @@ class Text(Drawable):
             self.x,self.y, 
             text=self.text, 
             font=self.font,
-            justify=self.justify
+            justify=self.justify,
+            tags = "key_tag"
         )
 
     def update(self, canvas, pos):
@@ -156,8 +162,12 @@ class Key2(Text):
         if (settings.kb_version == 2):
             r = settings.letter_selection_radius
             sx,sy = (self._centroid_x,self._centroid_y)
-            self._circle_handle = canvas.create_oval(sx-r, sy-r, sx+r, sy+r, fill='#ddd', outline='white')
+            self._circle_handle = canvas.create_oval(sx-r, sy-r, sx+r, sy+r, fill='#ddd', outline='white', tags = "key_tag")
             super(Key2,self).draw(canvas)
+
+    def delete(self, canvas):
+        super(Key2, self).delete(canvas)
+        canvas.delete(self._circle_handle)
 
     def update(self, canvas, pos):
         ''' 
@@ -200,6 +210,10 @@ class Key3(Text):
         self._x0, self._y0 = (0,0) # upper left corner
         self._x1, self._y1 = (0,0) # bottom right corner
 
+    def delete(self, canvas):
+        super(Key3, self).delete(canvas)
+        canvas.delete(self._circle_handle)
+
     def set_corners(self, uleft, bright):
         self._x0, self._y0 = uleft
         self._x1, self._y1 = bright
@@ -216,27 +230,24 @@ class Key3(Text):
         return False
 
     def draw(self, canvas):
-        if (settings.kb_version == 3):
-            #r is no longer radius, but width from closest edge of screen
-            r = settings.letter_selection_radius
-            sx,sy = (self._centroid_x,self._centroid_y)
-            ledge,redge = (0,float(canvas.cget("width"))) #ledge = left_edge, redge = right_edge
+        #r is no longer radius, but width from closest edge of screen
+        r = settings.letter_selection_radius
+        sx,sy = (self._centroid_x,self._centroid_y)
+        ledge,redge = (0,float(canvas.cget("width"))) #ledge = left_edge, redge = right_edge
 
-            if (distance((sx,sy),(ledge,sy)) < distance((sx,sy),(redge,sy))):
-                #closer to left edge
-                uleft = (0,0)
-                bright = (r,canvas.cget("height"))
-            else:
-                #closer to right edge
-                uleft = (float(canvas.cget("width"))-r, 0)
-                bright = (canvas.cget("width"), canvas.cget("height"))
-                
-            #self._circle_handle = canvas.create_rectangle(uleft, bright, fill='#ddd', outline='white')
-            self._circle_handle = canvas.create_rectangle(uleft, bright, fill='yellow', outline='white')
-            self.set_corners(uleft, bright)
-            super(Key3,self).draw(canvas)
+        if (distance((sx,sy),(ledge,sy)) < distance((sx,sy),(redge,sy))):
+            #closer to left edge
+            uleft = (0,0)
+            bright = (r,canvas.cget("height"))
         else:
-            raise Exception('This key is too specific to be applied to other layouts.')
+            #closer to right edge
+            uleft = (float(canvas.cget("width"))-r, 0)
+            bright = (canvas.cget("width"), canvas.cget("height"))
+            
+        #self._circle_handle = canvas.create_rectangle(uleft, bright, fill='#ddd', outline='white')
+        self._circle_handle = canvas.create_rectangle(uleft, bright, fill='blue', outline='white', tags = "key_tag")
+        self.set_corners(uleft, bright)
+        super(Key3,self).draw(canvas)
 
     def update(self, canvas, pos):
         ''' 
@@ -263,10 +274,223 @@ class Key3(Text):
             self.selected = False
         r = int((self.selection_score*255) / settings.selection_delay)
         canvas.itemconfigure(self.handle, fill=make_color(r,0,0))
+## below is a keyboard based on Key 3 that will divide the screen into 3 parts 
+class Key6(Text):
+    '''Dynamic on-screen key used for3 key layout (kb_version 5)'''
+    #Note: Currently inflexible key, specifically designed for 3 key layout on horizontal edges
+    def __init__(self, x,y, font, size=5):
+        # inherit from Text 
+        super(Key6, self).__init__(x,y, font, size)
+        self.selected = False
+        self.selection_score = 0
+        self._centroid_x, self._centroid_y = (0,0) # x,y selection centroid
+        # with 3 selection regions , one letter on the upper corner , one letter on the bottom left and one on the left 
+        self._x0, self._y0 = (0,0) # upper right corner
+        self._x1, self._y1 = (0,0) # bottom right corner
+
+    def delete(self, canvas):
+        super(Key6, self).delete(canvas)
+        canvas.delete(self._circle_handle)
+
+    def set_corners(self, uleft, bright):
+        self._x0, self._y0 = uleft
+        self._x1, self._y1 = bright
+
+    def set_centroid(self, centroid):
+        self._centroid_x, self._centroid_y = centroid
+
+    def contains(self, pos):
+        '''Determines if pos lies within the key'''
+        x,y = pos
+
+        if (x > self._x0 and x < self._x1 and y > self._y0 and y < self._y1):
+            return True
+        return False
+
+    def draw(self, canvas):
+        #modify this to make 3 selection regions 
+        #r is no longer radius, but width from closest edge of screen
+        r = settings.letter_selection_radius
+        sx,sy = (self._centroid_x,self._centroid_y)
+        # y coordinates of upper edge and bottom edge
+        uedge,bedge = (0,float(canvas.cget("height"))) 
+        redge = 1920
+        ledge = 0
+        middle = 960
+        if (distance((sx,sy),(sx,uedge)) < distance((sx,sy),(sx,bedge))):
+            #closer to upper edge
+            uleft = (1200,0)
+            bright = (1920,440)
+        elif(distance((sx,sy),(sx,uedge)) > distance((sx,sy),(sx,bedge))):
+            #closer to right edge
+            uleft = (1200, 640)
+            bright = (1920, 1080)
+        elif(distance((sx,sy),(ledge,sy)) < distance((sx,sy),(redge,sy))):
+            uleft =(0,0)
+            bright =(720,1080)
+        #if (sx > 960 and sy < 540):
+        #    uleft = (960,0)
+        #    bright = (1920,540)
+        #elif (sx>960 and sy>540):
+        #    uleft = (960,540)
+        #    bright = (1920,1080)
+            
+        #self._circle_handle = canvas.create_rectangle(uleft, bright, fill='#ddd', outline='white')
+        self._circle_handle = canvas.create_rectangle(uleft, bright, fill='green', outline='white', tags = "key_tag")
+        canvas.tag_lower(self._circle_handle)
+        self.set_corners(uleft, bright)
+        super(Key6,self).draw(canvas)
+
+    def update(self, canvas, pos):
+        ''' 
+        Checks if the selector is in the key.
+        Takes the difference of the last two screen update times to calculate
+        the time since the key was last updated, if selected adds that time to the
+        selection_score counter, if not selected subtracts half that time.
+        Once selection_score reaches a set threshold the key is marked as selected
+        '''
+        x,y = pos
+
+        super(Key6, self).update(canvas, (x,y))
+        if len(timelog) >= 2:
+            if self.contains(pos):
+                self.selection_score += timelog[-1][1]-timelog[-2][1]
+            else:
+                self.selection_score -= (timelog[-1][1]-timelog[-2][1])/2
+                self.selection_score = max(0,self.selection_score)
+
+        if self.selection_score > settings.selection_delay:
+            self.selection_score = 0
+            self.selected = True
+        else:
+            self.selected = False
+        r = int((self.selection_score*255) / settings.selection_delay)
+        canvas.itemconfigure(self.handle, fill=make_color(r,0,0))
+
+class SingleKeyTimeSelectionKey(Text):
+    ''' Dynamic on-screen key. Designed for a single key layout. Uses time-based selection.
+    Selection region decoupled from character display'''
+    def __init__(self, x,y, font, size=5):
+        super(SingleKeyTimeSelectionKey, self).__init__(x,y, font, size)
+        self.selected = False
+        self.next_page = False
+        self.selection_score = 0
+        self.next_page_score = 0
+        self._centroid_x, self._centroid_y = (0,0) # x,y selection centroid
+
+    def set_centroid(self, centroid):
+        self._centroid_x, self._centroid_y = centroid
+
+    def draw(self, canvas):
+        r = settings.letter_selection_radius
+        sx,sy = (self._centroid_x,self._centroid_y)
+        self._circle_handle = canvas.create_oval(sx-r, sy-r, sx+r, sy+r, fill="yellow", outline="", tags = "key_tag")
+        super(SingleKeyTimeSelectionKey,self).draw(canvas)
+
+    def delete(self, canvas):
+        super(SingleKeyTimeSelectionKey, self).delete(canvas)
+        canvas.delete(self._circle_handle)
+
+    def update(self, canvas, pos):
+        ''' 
+        Checks if the selector is in the field of the key selection radius.
+        Takes the difference of the last two screen update times to calculate
+        the time since the key was last updated, if selected adds that time to the
+        selection_score counter, if not selected subtracts half that time.
+        Once selection_score reaches a set threshold the key is marked as selected.
+        Looking outside of the key selects the key, whereas looking in the key advances to
+        the next page.
+        '''
+        x,y = pos
+
+        r = settings.letter_selection_radius
+        sx,sy = (self._centroid_x,self._centroid_y)
+        #canvas.coords(self._circle_handle, sx-r, sy-r, sx+r, sy+r)
+
+        super(SingleKeyTimeSelectionKey, self).update(canvas, (x,y))
+        if len(timelog) >= 2:
+            if distance((x,y), (self._centroid_x, self._centroid_y)) < settings.letter_selection_radius:
+                # If the gaze is within the selection radius, increment next page value
+                self.next_page_score += timelog[-1][1]-timelog[-2][1]
+                self.selection_score -= timelog[-1][1]-timelog[-2][1]
+                self.selection_score = max(0,self.selection_score)
+            else:
+                self.selection_score += timelog[-1][1]-timelog[-2][1]
+                self.next_page_score -= timelog[-1][1]-timelog[-2][1]
+                self.next_page_score = max(0,self.selection_score)
+
+        if self.selection_score > settings.selection_delay:
+            self.selection_score = 0
+            self.next_page_score = 0
+            self.selected = True
+            self.next_page = False
+        elif self.next_page_score > settings.selection_delay:
+            self.selection_score = 0
+            self.next_page_score = 0
+            self.selected = False
+            self.next_page = True
+        else:
+            self.selected = False
+            self.next_page = False
+        r = int((self.selection_score*255) / settings.selection_delay)
+        canvas.itemconfigure(self.handle, fill=make_color(r,0,0))
+
+class DataCollectionKey(Text):
+    '''Key used in calibration process or for data collection'''
+    def __init__(self, x,y, font, size=5):
+        super(DataCollectionKey, self).__init__(x,y, font, size)
+        self._text = settings.cal_letter
+        self.write(self._text)
+
+    def draw(self, canvas):
+        super(DataCollectionKey,self).draw(canvas)
+
+class SVMScoringKey(Text):
+    '''Key useing SVM for calibration'''
+    def __init__(self, x,y, font, size=5):
+        super(SVMScoringKey, self).__init__(x,y, font, size)
+        self.selected = False
+        self.selection_score = 0
+        self._centroid_x, self._centroid_y = (0,0) # x,y selection centroid
+        self._x0, self._y0 = (0,0) # upper left corner
+        self._x1, self._y1 = (0,0) # bottom right corner
+
+    def delete(self, canvas):
+        super(SVMScoringKey, self).delete(canvas)
+        canvas.delete(self._circle_handle)
+
+    def draw(self, canvas):
+        super(SVMScoringKey,self).draw(canvas)
+        r = settings.letter_selection_radius
+        sx,sy = (self._centroid_x,self._centroid_y)
+        self._circle_handle = canvas.create_oval(sx-r, sy-r, sx+r, sy+r, fill=None, outline="", tags = "key_tag")
+
+    def set_centroid(self, centroid):
+        pass
+
+    def update(self, canvas, pos):
+        x,y = pos
+        super(SVMScoringKey, self).update(canvas, (x,y))
+        if self.selection_score > settings.selection_delay:
+            self.selection_score = 0
+            self.selected = True
+        else:
+            self.selected = False
+        r = int((self.selection_score*255) / settings.selection_delay)
+        canvas.itemconfigure(self.handle, fill=make_color(r,0,0))
+
+    def increment_score(self):
+        if len(timelog) >= 2:
+            self.selection_score += timelog[-1][1]-timelog[-2][1]
+
+    def decrement_score(self):
+        if len(timelog) >= 2:
+            self.selection_score -= (timelog[-1][1]-timelog[-2][1])/2
+            self.selection_score = max(0,self.selection_score)
 
 class OnscreenKeyboard(Drawable):
     ''' Consists of a number of evenly spaced Text objects '''
-    def __init__(self, font, shape, predictionary):
+    def __init__(self, font, shape, predictionary, screen_w, screen_h):
         self.logger = logging.getLogger('kb')
         row,col = shape
         if not isinstance(predictionary, Predictionary):
@@ -288,6 +512,17 @@ class OnscreenKeyboard(Drawable):
         self._at_end = False
         self._page = 0
         self.font = font
+        self.standard_operation = True
+        self.calibrating = False
+        self.collecting_data = False
+        self.cal_t0 = 0
+        self.screen_w = screen_w
+        self.screen_h = screen_h
+        self.move_keys = False
+
+        #SVM variables
+        self.svm_window = []
+        self.svm_model = None
 
         i = 0
         for x in xrange(0, self.row*self.col):
@@ -295,6 +530,36 @@ class OnscreenKeyboard(Drawable):
                 key = Key2(0,0, self.font)
             elif settings.kb_version == 3:
                 key = Key3(0,0,self.font)
+            elif settings.kb_version == 4:
+                key = SVMScoringKey(0,0,self.font)
+            elif settings.kb_version == 5:
+                key = SingleKeyTimeSelectionKey(0,0, self.font)
+                #key = Key(0,0,self.font)
+            elif settings.kb_version == 6:
+                key = Key6(0,0,self.font)
+            else:
+                key = Key(0,0, self.font)
+            try:
+                key.write(self._get_arrangement()[i])
+            except IndexError as e:
+                self.logger.warning('Not enough choices to populate keyboard')
+            i += 1
+            print('appending key is',key.text)
+            self.keys.append(key)
+
+    def initialize_keys(self):
+        i = 0
+        for x in xrange(0, self.row*self.col):
+            if settings.kb_version == 2:
+                key = Key2(0,0, self.font)
+            elif settings.kb_version == 3:
+                key = Key3(0,0,self.font)
+            elif settings.kb_version == 4:
+                key = SVMScoringKey(0,0,self.font)
+            elif settings.kb_version == 5:
+                key = SingleKeyTimeSelectionKey(0,0, self.font)
+            elif settings.kb_version == 6:
+                key = Key6(0,0,self.font)
             else:
                 key = Key(0,0, self.font)
             try:
@@ -330,6 +595,14 @@ class OnscreenKeyboard(Drawable):
             ]
             self._page = self._page % len(layout)
             return layout[self._page]
+        elif self.calibrating == True:
+            layout = [
+            ['a', '', '', '', ''], # 0
+            ['', 'b', '', '', ''], # 1
+            ['', '', 'c', '', ''], # 2
+            ['', '', '', 'd', ''], # 3
+            ['', '', '', '', 'e'], # 4
+            ]
         elif settings.kb_version > 1:
             if self.col*self.row == 8:
                 layout = [
@@ -356,7 +629,7 @@ class OnscreenKeyboard(Drawable):
                     ['y', 'z', '',  '<'], # 12
                     ['{}','.', '',  '<']  # 13
                 ]
-            elif self.col*self.row == 2:
+            elif self.col*self.row == 2 :
                 if (settings.kb_uniform_selection == 1):
                     '''Uniform tree depth layout (repeated characters in tree branches)'''
                     layout = [
@@ -396,18 +669,95 @@ class OnscreenKeyboard(Drawable):
                         ['{}', '<'], #33
                         ['<','.'] #34
                     ]
+            elif (self.col*self.row == 1):
+                layout = [
+                    ['a'], #0
+                    ['b'], #1
+                    ['c'], #2
+                    ['d'], #3
+                    ['e'], #4
+                    ['f'], #5
+                    ['g'], #6
+                    ['h'], #7
+                    ['i'], #8
+                    ['j'], #9
+                    ['k'], #10
+                    ['l'], #11
+                    ['m'], #12
+                    ['n'], #13
+                    ['o'], #14
+                    ['p'], #15
+                    ['q'], #16
+                    ['r'], #17
+                    ['s'], #18
+                    ['t'], #19
+                    ['u'], #20
+                    ['v'], #21
+                    ['w'], #22
+                    ['x'], #23
+                    ['y'], #24
+                    ['z'], #25
+                    ['{}'], #26
+                    ['<'], #27
+                    ['a'] #28
+                ]
+            elif (self.col*self.row == 3):
+                layout =[ ['a:z','#','<'], # 0
+                          ['a:m','n:z','<'], #1
+                          ['a:g','h:m','<'], #2
+                          ['a:d','e:g','<'], #3
+                          ['a:b','c:d','<'], #4
+                          ['a','b','<'], #5
+                          ['c','d','<'], #6
+                          ['e:f','f:g','<'], #7
+                          ['e','f','<'], #8
+                          ['f','g','<'], #9
+                          ['h:j','k:m','<'], #10
+                          ['h:i','i:j','<'], #11
+                          ['h','i','<'], #12
+                          ['i','j','<'], #13
+                          ['k:l','l:m','<'], #14
+                          ['k','l','<'], #15
+                          ['l','m','<'], #16
+                          ['n:t','u:z','<'], #17
+                          ['n:q','r:t','<'], #18
+                          ['n:o','p:q','<'], #19
+                          ['n','o','<'], #20
+                          ['p','q','<'], #21
+                          ['r:s','s:t','<'], #22
+                          ['r','s','<'], #23
+                          ['s','t','<'], #24
+                          ['u:w','x:z','<'], #25
+                          ['u:v','v:w','<'], #26
+                          ['u','v','<'], #27
+                          ['v','w','<'], #28
+                          ['x:y','y:z','<'], #29
+                          ['x','y','<'], #30
+                          ['y','z','<'], #31
+                          ['{}:<','<:.','#'], #32
+                          ['{}', '<','#'], #33
+                          ['<','.','#'] #34
+                
+                
+                ]
+
             self._page = self._page % len(layout)
+            
+            print(self._page)
             return layout[self._page]
+           
         else:
             return self._predict._get_arrangement()
 
     def draw(self, canvas):
         ''' Draws keyboard keys evenly spaced on tk canvas '''
-        if (settings.kb_version == 2):
+        if (settings.kb_version == 2 or settings.kb_version == 5):
             dx,dy = (self.w/self.col, self.h/self.row)
             x0,y0 =  (self.x + dx/2, self.y + dy/2)
             i,j = (0,0)
             for key in self.keys:
+                print(key.text)
+               
                 y = y0 + i*dy
                 x = x0 + j*dx
                 j += 1
@@ -415,56 +765,110 @@ class OnscreenKeyboard(Drawable):
                     j = 0
                     i += 1
                 key.x,key.y = (x,y)
+                print('x is',x)
+                print('y is',y)
+                print('x coordinate of key is ',key.x)
+                print('y coordinate of key is', key.y)
                 key.set_centroid((key.x,key.y))
                 key.draw(canvas)
                 canvas.coords(key.handle, x,y)
-        elif (settings.kb_version == 3):
+                print("canvas coords is ",canvas.coords(key.handle, x,y))
+        elif (settings.kb_version == 3 or settings.kb_version == 4 ):
             if (self.row*self.col > 2):
                 raise Exception('More than two keys not yet supported for max spacing layout')
-            #loop fills keys on left edge then right edge
+            # loop fills keys on left edge then right edge
             i = 0
-            offset = 225 #offset into screen from edge
+            offset = 225 # offset into screen from edge
             for key in self.keys:
                 x,y = (i*self.w + offset - 2*offset*i, i*self.h + offset//3 - 2*offset*i//3)
+                #x,y =(1920-255,offset+i*700)
                 key.x,key.y = (x,y)
                 key.set_centroid((key.x,key.y))
                 key.draw(canvas)
                 canvas.coords(key.handle, x,y)
                 i+=1
+        elif (settings.kb_version == 6):
+            i = 0
+            offset = 225 # offset into screen from edge
+            for key in self.keys:
+                print('i is ',i)
+                #x,y = (i*self.w + offset - 2*offset*i, i*self.h + offset//3 - 2*offset*i//3)
+                if (i == 0):
+                    x,y =(1920-255,255)
+                    print(key.text)
+                elif (i == 1):
+                    x,y =(1920-255,955)
+                    print(key.text)
+                    #x,y =(480,540)
+                elif(i==2):
+                    x,y =(480,540)
+                    print(key.text)
+                    #x,y =(1920-255,offset+i*700)
+                key.x,key.y = (x,y)
+                print('x coordinate of key is ',key.x)
+                print('y coordinate of key is', key.y)
+                key.set_centroid((key.x,key.y))
+                key.draw(canvas)
+                canvas.coords(key.handle, x,y)
+                
+                print("canvas coords is ",canvas.coords(key.handle, x,y))
+                i+=1
+                
+                
+                
+
+
 
     def update(self, canvas, pos):
         ''' Checks if a key is selected and if events occur '''
-        x,y = pos
-        for key in self.keys: 
-            key.update(canvas, (x,y))
-            if settings.calibrate == False:
-                if key.selected == True:
-                    self._last_selection = key.text
-                    index = self.keys.index(key)
-                    if len(self._index_history) > 1:
-                        if self._index_history[0] is not index:
-                            self._index_history[1] = self._index_history[0]
-                            self._index_history[0] = index
-                            '''
-                            if index == (self.col*self.row) - 1:
-                                print('Reached end of page')
-                                self._at_end = True
-                            elif index == 0 and self._at_end == True:
-                                self.next_page()
-                                self._at_end = False
-                            '''
+        if (self.move_key == True):
+            move_key(self,canvas,pos)
+        if (self.standard_operation == True):
+            x,y = pos
+            if (settings.kb_version == 4):
+                if self.svm_model != None:
+                    selected_key = self.svm_prediction(canvas, pos)
+                    if (selected_key > -1): # -1 indicates no prediction (insufficent data)
+                        self.keys[int(selected_key) - 1].increment_score()
+            for key in self.keys: 
+                key.update(canvas, (x,y))
+                if settings.calibrate == False:
+                    key_next_page = False # Flag only relevant for kb_version 5
+                    if (settings.kb_version == 5):
+                        if (key.next_page == True):
+                            key_next_page = True
+                    if key.selected == True or key_next_page == True:
+                        self._last_selection = key.text
+                        index = self.keys.index(key)
+                        if len(self._index_history) > 1:
+                            if self._index_history[0] is not index:
+                                self._index_history[1] = self._index_history[0]
+                                self._index_history[0] = index
+                                '''
+                                if index == (self.col*self.row) - 1:
+                                    print('Reached end of page')
+                                    self._at_end = True
+                                elif index == 0 and self._at_end == True:
+                                    self.next_page()
+                                    self._at_end = False
+                                '''
+                        else:
+                            self._index_history.append(index)
+                            self._index_history.append(index)
+                        if settings.kb_version > 1:
+                            self.process(key)
+                    if key.text == self._last_selection and y < key.y:
+                        canvas.coords(key.handle, x,y)
                     else:
-                        self._index_history.append(index)
-                        self._index_history.append(index)
-                    if settings.kb_version > 1:
-                        self.process()
-                if key.text == self._last_selection and y < key.y:
-                    canvas.coords(key.handle, x,y)
-                else:
-                    canvas.coords(key.handle, key.x,key.y)
+                        canvas.coords(key.handle, key.x,key.y)
+        elif (self.collecting_data == True):
+            self.collect_data(canvas)
+        elif (self.calibrating == True):
+            self.calibrate(canvas)
 
     def delete(self, canvas):
         for key in self.keys: key.delete(canvas)
+        self.keys = []
 
     def larger(self):
         size = self.font['size']
@@ -474,7 +878,7 @@ class OnscreenKeyboard(Drawable):
         size = self.font['size']
         self.font.configure(size=int(size*0.9))
 
-    def process(self):
+    def process(self, key):
         '''
         Outputs last selected char/key
         v1:Processes the last key pressed through the predictionary 
@@ -507,7 +911,7 @@ class OnscreenKeyboard(Drawable):
                         'yz':12,
                         '#' :13
                     }
-                elif self.col*self.row == 2:
+                elif self.col*self.row == 2 or self.col*self.row == 3:
                     if (settings.kb_uniform_selection == 1):
                         selection_map = {
                             'a:z':1,
@@ -545,12 +949,87 @@ class OnscreenKeyboard(Drawable):
                             '{}:<':33,
                             '<:.':34
                         }
+                elif self.col*self.row == 3:
+                    selection_map = {
+                            '1':1,
+                            '2':2,
+                            '3':3,
+                      
+                        }
+                elif self.col*self.row == 1:
+                    if (settings.kb_version == 5):
+                        if (key.selected == True):
+                            selection_map = {}
+                        elif (key.next_page == True):
+                            #TODO: fix bug with '.' (currently always gets selected)
+                            selection_map = {
+                                'a':1,
+                                'b':2,
+                                'c':3,
+                                'd':4,
+                                'e':5,
+                                'f':6,
+                                'g':7,
+                                'h':8,
+                                'i':9,
+                                'j':10,
+                                'k':11,
+                                'l':12,
+                                'm':13,
+                                'n':14,
+                                'o':15,
+                                'p':16,
+                                'q':17,
+                                'r':18,
+                                's':19,
+                                't':20,
+                                'u':21,
+                                'v':22,
+                                'w':23,
+                                'x':24,
+                                'y':25,
+                                'z':26,
+                                '{}':27,
+                                '<':28
+                            }
+                    else:
+                        selection_map = {
+                            'a':1,
+                            'b':2,
+                            'c':3,
+                            'd':4,
+                            'e':5,
+                            'f':6,
+                            'g':7,
+                            'h':8,
+                            'i':9,
+                            'j':10,
+                            'k':11,
+                            'l':12,
+                            'm':13,
+                            'n':14,
+                            'o':15,
+                            'p':16,
+                            'q':17,
+                            'r':18,
+                            's':19,
+                            't':20,
+                            'u':21,
+                            'v':22,
+                            'w':23,
+                            'x':24,
+                            'y':25,
+                            'z':26,
+                            '{}':27,
+                            '<':28,
+                            '.':0
+                        }
                 def add_space(): 
                     self._last_selection = ' '
                     self._speak('space')
                     self.process()
                 def undo():
-                    if self._page == 0 or self._page == 13 or self._page == 33 or self._page == 34:
+                    if self._page == 0 or self._page == 13 or self._page == 33 or self._page == 34 or self._page == 27:
                         self._delete()
                     else:
                         self.reset()
@@ -589,6 +1068,130 @@ class OnscreenKeyboard(Drawable):
             key.clear()
             key.write(choices[i])
             i = (i+1) % len(choices)
+
+    def gen_svm_model(self):
+        df = pd.read_csv('../data/eye_tests/combined_calibration_log.csv',sep=',')
+        X = df.iloc[:,[0,1]].values
+        #standardize feature vectors 
+        stdsc = StandardScaler()
+        X = stdsc.fit_transform(X)
+        y=df.iloc[:,3].values
+        C = 1.0  # SVM regularization parameter
+        if (settings.SVM_model_type == 1):
+            self.svm_model = svm.SVC(kernel='linear', C=C).fit(X, y)
+        elif (settings.SVM_model_type == 2):
+            self.svm_model = svm.SVC(kernel='rbf', gamma=0.7, C=C).fit(X, y)
+        elif (settings.SVM_model_type == 3):
+            self.svm_model = svm.SVC(kernel='poly', degree=3, C=C).fit(X, y)
+        elif (settings.SVM_model_type == 4):
+            self.svm_model = svm.LinearSVC(C=C).fit(X, y)
+        else:
+            raise Exception("Invalid SVM model selection")
+
+    def svm_prediction(self, canvas, pos):
+        size = settings.SVM_window_size
+        n_pos = np.array(pos)
+        #standardize it before make predictions
+        stdsc = StandardScaler()
+        n_pos = stdsc.fit_transform(pos)
+        #depend on how many points we want to look in order to make prediction
+        if len(self.svm_window) == size:
+            b = Counter(self.svm_window)
+            self.svm_window = []   #reinitialize window
+
+            return b.most_common(1)[0][0]    #output the most common class labels
+
+        else:  
+            n_pos = np.array(n_pos)
+            #standardize it before make predictions
+            stdsc = StandardScaler()
+            n_pos = stdsc.fit_transform(n_pos)
+            prediction = self.svm_model.predict(n_pos)
+      
+            self.svm_window.append(str(prediction[0]))
+            return -1
+
+    def configure_calibration(self):
+        self.standard_operation = False
+        self.collecting_data = False
+        self.calibrating = True
+        self.cal_t0 = time.clock()
+
+    def configure_data_collection(self, canvas):
+        self.standard_operation = False
+        self.collecting_data = True
+        self.calibrating = False
+        #self._clear_keyboard(canvas)
+        self.delete(canvas)
+        # create the first data collection key and place it in the upper left corner of the screen
+        key = DataCollectionKey(0,0, self.font)
+        x,y = (settings.dc_dx,settings.dc_dy)
+        key.x,key.y = (x,y)
+        key.draw(canvas)
+        canvas.coords(key.handle, x,y)
+        self.keys.append(key)
+        self.cal_t0 = time.clock()
+
+    def configure_standard_operation(self, canvas):
+        self.standard_operation = True
+        self.calibrating = False
+        self.collecting_data = False
+        self.delete(canvas)
+        self.initialize_keys()
+        self.draw(canvas)
+
+    def collect_data(self,canvas):
+        dt = settings.calibration_hold_time
+        current_time = time.clock()
+        dx,dy = (settings.dc_dx, settings.dc_dy)
+        key = self.keys[0]
+        if (current_time > self.cal_t0 + 5*dt + 2):
+            #after 5*dt seconds, restore keyboard to original format
+            # Note: 2 second buffer is used to ensure c is done compiling calibration logs
+            self.configure_standard_operation(canvas)
+        elif (current_time > self.cal_t0 + 4*dt):
+            # after 4*dt seconds, move key to center
+            canvas.coords(key.handle, (self.screen_w//2, self.screen_h//2))
+        elif (current_time > self.cal_t0 + 3*dt):
+            # after 3*dt seconds, move key to bottom left corner
+            canvas.coords(key.handle, (dx, self.screen_h - dy))
+        elif (current_time > self.cal_t0 + 2*dt):
+            # after 2*dt seconds, move key to bottom right corner
+            canvas.coords(key.handle, (self.screen_w - dx, self.screen_h - dy))
+        elif (current_time > self.cal_t0 + dt):
+            # after dt seconds, move key to upper right corner
+            canvas.coords(key.handle, (self.screen_w - dx,dy))
+
+    def move_key(self, canvas, pos):
+        for key in self.keys:
+            canvas.coords(key.handle, pos)
+        self.move_key = False
+
+    def calibrate(self, canvas):
+        dt = settings.calibration_hold_time
+        current_time = time.clock()
+        for key in self.keys:
+            key.clear()
+            key.update(canvas,(0,0))        
+        if (current_time > self.cal_t0 + self.row*self.col*dt):
+            self.configure_standard_operation(canvas)
+            if (settings.kb_version == 4):
+                self.gen_svm_model()
+        elif (current_time > self.cal_t0 + 4*dt):
+            self.keys[4].write(settings.cal_letter)
+            self.keys[4].update(canvas,(0,0))
+        elif (current_time > self.cal_t0 + 3*dt):
+            self.keys[3].write(settings.cal_letter)
+            self.keys[3].update(canvas,(0,0))
+        elif (current_time > self.cal_t0 + 2*dt):
+            self.keys[2].write(settings.cal_letter)
+            self.keys[2].update(canvas,(0,0))
+        elif (current_time > self.cal_t0 + dt):
+            self.keys[1].write(settings.cal_letter)
+            self.keys[1].update(canvas,(0,0))
+        elif (current_time > self.cal_t0):
+            self.keys[0].write(settings.cal_letter)
+            self.keys[0].update(canvas,(0,0))
 
     def attach_write_callback(self, write_function):
         ''' 

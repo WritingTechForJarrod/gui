@@ -26,7 +26,7 @@ from os import remove
 from wtfj import *
 
 class Application(Frame):
-    def __init__(self, master=None, screen_size=(1080, 720)):
+    def __init__(self, master=None, screen_size=(1920, 1080)):
         # Create lists of drawable objects in app
         self.drawables = []
         # Application housekeeping
@@ -61,6 +61,9 @@ class Application(Frame):
             drawable.update(self.canvas, input_device)
         self.mutex.release()
 
+        if (kb.collecting_data == True or kb.calibrating == True):
+            app.console.clear()
+
         # Update speech engine
         engine.iterate()
 
@@ -87,12 +90,13 @@ class Application(Frame):
                         mainlog.debug(l)
                         kb.set_centroids(l)
 
+
         # Find refresh rate
-        if len(timelog) > 11:
+        '''if len(timelog) > 11:
             last_10 = timelog[-11:-1]
             last_9_diff = [last_10[i+1][1]-last_10[i][1] for i in range(0,9)]
             app.refresh.clear()
-            app.refresh.write(str(int(9/sum(last_9_diff))))
+            app.refresh.write(str(int(9/sum(last_9_diff))))'''
             
         # Call this loop again after some milliseconds
         self.canvas.after(50, self._draw_periodic)
@@ -108,21 +112,22 @@ class Application(Frame):
         ''' Create the base canvas, menu/selection elements, mouse/key functions '''
         self.canvas = Canvas(self.master, width=self.screen_w, height=self.screen_h)
         w,h = (self.screen_w, self.screen_h)
+        self.mouse = MouseLight(settings.mouselight_radius)
         
         # Upper text console and keyboard
-        if (settings.kb_version <= 2):
+        if (settings.kb_version <= 2 or settings.kb_version > 3):
             self.console = Text(0,0, console_font)
         elif (settings.kb_version == 3):
             self.console = Text(self.screen_w/3,self.screen_h/3, console_font)
         self.drawables.append(self.console)
-        self.refresh = Text(w,0, console_font, justify='right')
-        self.drawables.append(self.refresh)
+        #self.refresh = Text(w,0, console_font, justify='right')
+        #self.drawables.append(self.refresh)
         kb.set_dimensions(0,h//6,w,h-h//6)
         self.drawables.append(kb)
         
         self.drawables.append(self.console)
         # Marker that follows mouse movement
-        self.drawables.append(MouseLight(settings.mouselight_radius))
+        self.drawables.append(self.mouse)
 
         # Initial drawing of all Drawables
         for drawable in self.drawables:
@@ -130,12 +135,14 @@ class Application(Frame):
 
         self.canvas.pack()
         self.canvas.itemconfigure(self.console.handle, anchor='nw')
-        self.canvas.itemconfigure(self.refresh.handle, anchor='ne')
+        #self.canvas.itemconfigure(self.refresh.handle, anchor='ne')
         self.canvas.bind("<Motion>", on_mouse_move)
         self.canvas.bind("<ButtonPress-1>", on_left_click)
         self.canvas.bind("<ButtonPress-3>", on_right_click)
         self.canvas.bind_all("<Escape>", on_esc)
         self.canvas.bind_all("<space>", on_space)
+        self.canvas.bind_all("<Tab>", on_tab)
+        self.canvas.bind_all("<1>", on_shift)
 
     def mainloop(self):
         go = Thread(target=self._draw_periodic)
@@ -158,18 +165,23 @@ class Application(Frame):
 def on_mouse_move(event):
     app.last_mouse = (event.x, event.y)
 
+def on_shift(event):
+    kb.move_keys = True
+
 def on_esc(event):
     app.quit()
 
 def on_space(event):
-    global t0
-    global cal_stage
-    settings.calibrate = True
-    with open('go.txt','w') as f: pass # Create go.txt flag file
-    kb.reset()
-    speak('calibrating')
-    t0 = time.clock()
-    cal_stage = 0
+    with open('go.txt','w') as f:
+        rows,cols = settings.kb_shape
+        f.write(str(rows*cols) + "," + str(settings.calibration_hold_time)) # Create go.txt flag file
+    kb.configure_calibration()
+
+def on_tab(event):
+    with open('go.txt','w') as f:
+        rows,cols = settings.kb_shape
+        f.write("5," + str(settings.calibration_hold_time)) # Create go.txt flag file (hardcode 5 for data collection)
+    kb.configure_data_collection(app.canvas)
 
 def on_right_click(event):
     mainlog.debug('Right click')
@@ -199,7 +211,7 @@ if __name__ == '__main__':
     mainlog = logging.getLogger('main')
     console_font = font.Font(family='Helvetica',size=settings.console_font_size, weight='bold')
     kb_font = font.Font(family='Helvetica',size=settings.kb_font_size, weight='bold')
-    kb = OnscreenKeyboard(kb_font, settings.kb_shape, Predictionary('../dict/'+settings.dict_filename))
+    kb = OnscreenKeyboard(kb_font, settings.kb_shape, Predictionary('../dict/'+settings.dict_filename), w, h)
     if (settings.keep_coordinates_log == 1):
         coordinates_log = open(settings.log_name,'w')
 
