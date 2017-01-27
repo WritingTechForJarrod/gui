@@ -6,7 +6,7 @@ kb_version = 2
 '''
 kb_uniform_selection = 1 # 1 = uniform selection time for each letters
 
-console_font_size = 150
+console_font_size = 40
 dict_path = '../../dict/'
 dict_filename = 'sample_dict.txt'
 selection_allowed = 1 # 0 = disabled letter selection, 1 = enable letter selection
