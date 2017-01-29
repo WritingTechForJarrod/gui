@@ -25,6 +25,7 @@ cal_letter = 'v'
 SVM_window_size = 10
 SVM_model_type = 1 # 1 = linear, 2 = rbf, 3 = poly, 4 = Linear2
 
+selection_mechanism = 'blink' # valid entries are 'blink' or 'time' (only enabled for 2 key layout)
 selection_delay = 1 # seconds
 pre_audio_buffer = 1 # seconds
 off_screen_threshold = selection_delay + 1 # seconds
@@ -33,6 +34,11 @@ if selection_allowed == 1:
 	letter_selection_radius = 110
 else:
 	letter_selection_radius = 0
+
+if (kb_version == 7):
+	filter_window_size = 1
+if (kb_version == 3 and selection_mechanism == 'blink'):
+	filter_window_size = 2
 
 # Over-write standard settings with user settings
 try:

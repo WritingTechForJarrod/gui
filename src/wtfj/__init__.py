@@ -273,6 +273,11 @@ class Key3(Text):
         self._centroid_x, self._centroid_y = (0,0) # x,y selection centroid
         self._x0, self._y0 = (0,0) # upper left corner
         self._x1, self._y1 = (0,0) # bottom right corner
+        self.point_history = []
+        self.phase1 = False
+        self.phase2 = False
+        self.point_history_length = 3
+        self.last_pos = None
 
     def delete(self, canvas):
         super(Key3, self).delete(canvas)
@@ -324,20 +329,54 @@ class Key3(Text):
         x,y = pos
 
         super(Key3, self).update(canvas, (x,y))
-        if len(timelog) >= 2:
-            if self.contains(pos):
-                self.selection_score += timelog[-1][1]-timelog[-2][1]
-            else:
-                self.selection_score -= (timelog[-1][1]-timelog[-2][1])/2
-                self.selection_score = max(0,self.selection_score)
+        if (settings.selection_mechanism == 'time'):
+            if len(timelog) >= 2:
+                if self.contains(pos):
+                    self.selection_score += timelog[-1][1]-timelog[-2][1]
+                else:
+                    self.selection_score -= (timelog[-1][1]-timelog[-2][1])/2
+                    self.selection_score = max(0,self.selection_score)
 
-        if self.selection_score > settings.selection_delay:
-            self.selection_score = 0
-            self.selected = True
+            if self.selection_score > settings.selection_delay:
+                self.selection_score = 0
+                self.selected = True
+            else:
+                self.selected = False
+            r = int((self.selection_score*255) / settings.selection_delay)
+            canvas.itemconfigure(self.handle, fill=make_color(r,0,0))
+        elif(settings.selection_mechanism == 'blink'):
+
+            if(len(self.point_history) < self.point_history_length):
+                self.point_history = [pos] + self.point_history
+            else:
+                self.point_history = [pos] + self.point_history[0:len(self.point_history)-1]
+
+            # if ke was just selected, reset values
+            if (self.phase1 == True and self.phase2 == True):
+                self.phase1 = False
+                self.phase2 = False
+                self.selected = False
+
+            if (self.contains(pos)):
+                # no motion check                     
+                if (self.phase1 == False and len(self.point_history) == self.point_history_length):
+                    self.phase1 = True
+                    for val in self.point_history:
+                        if val != pos:
+                            self.phase1 = False
+                            break
+                # Final motion check
+                elif (self.phase1 == True and self.last_pos != pos):
+                    self.phase2 = True
+                    self.selected = True
+            # reset variables when position leaves key boundaries.
+            else:
+                self.phase1 = False
+                self.phase2 = False
+                self.selected = False
+            self.last_pos = pos
         else:
-            self.selected = False
-        r = int((self.selection_score*255) / settings.selection_delay)
-        canvas.itemconfigure(self.handle, fill=make_color(r,0,0))
+            raise Exception("Invalid selection mechanism selected. Valid options 'blink' or 'time'.")
 ## below is a keyboard based on Key 3 that will divide the screen into 3 parts 
 class Three_Key(Text):
     '''Dynamic on-screen key used for3 key layout (kb_version 5)'''
@@ -645,16 +684,16 @@ class AudioKey(Text):
                 thread.start_new_thread(speak_character, (self.text,))
                 self.spoken = True
 
-            # blink select detection
+            # No motion check
             if (self.phase1 == False and len(self.point_history) == self.point_history_length):
+                self.time_off_screen += timelog[-1][1]-timelog[-2][1]
                 self.phase1 = True
                 for val in self.point_history:
                     if val != pos:
                         self.phase1 = False
                         break
-            # No motion phase observed
+            # Final motion check
             elif (self.phase1 == True and self.last_pos != pos):
-                # Motion observed after phase 1 of no motion
                 self.phase2 = True
                 self.preselect = True
 
