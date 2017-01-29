@@ -31,6 +31,68 @@ def make_color(r_uint8,g_uint8,b_uint8):
     b = '0x{:02x}'.format(b_uint8).replace('0x','')
     return '#'+r+g+b
 
+def speak_character(character):
+    if (character == 'a:m'):
+        winsound.PlaySound('audio_files/a_to_m_sound.wav',winsound.SND_FILENAME)
+    elif (character == 'n:z'):
+        winsound.PlaySound('audio_files/n_to_z_sound.wav',winsound.SND_FILENAME)
+    elif (character == 'a'):
+        winsound.PlaySound('audio_files/a_sound.wav',winsound.SND_FILENAME)
+    elif (character == 'b'):
+        winsound.PlaySound('audio_files/b_sound.wav',winsound.SND_FILENAME)
+    elif (character == 'c'):
+        winsound.PlaySound('audio_files/c_sound.wav',winsound.SND_FILENAME)
+    elif (character == 'd'):
+        winsound.PlaySound('audio_files/d_sound.wav',winsound.SND_FILENAME)
+    elif (character == 'e'):
+        winsound.PlaySound('audio_files/e_sound.wav',winsound.SND_FILENAME)
+    elif (character == 'f'):
+        winsound.PlaySound('audio_files/f_sound.wav',winsound.SND_FILENAME)
+    elif (character == 'g'):
+        winsound.PlaySound('audio_files/g_sound.wav',winsound.SND_FILENAME)
+    elif (character == 'h'):
+        winsound.PlaySound('audio_files/h_sound.wav',winsound.SND_FILENAME)
+    elif (character == 'i'):
+        winsound.PlaySound('audio_files/i_sound.wav',winsound.SND_FILENAME)
+    elif (character == 'j'):
+        winsound.PlaySound('audio_files/j_sound.wav',winsound.SND_FILENAME)
+    elif (character == 'k'):
+        winsound.PlaySound('audio_files/k_sound.wav',winsound.SND_FILENAME)
+    elif (character == 'l'):
+        winsound.PlaySound('audio_files/l_sound.wav',winsound.SND_FILENAME)
+    elif (character == 'm'):
+        winsound.PlaySound('audio_files/m_sound.wav',winsound.SND_FILENAME)
+    elif (character == 'n'):
+        winsound.PlaySound('audio_files/n_sound.wav',winsound.SND_FILENAME)
+    elif (character == 'o'):
+        winsound.PlaySound('audio_files/o_sound.wav',winsound.SND_FILENAME)
+    elif (character == 'p'):
+        winsound.PlaySound('audio_files/p_sound.wav',winsound.SND_FILENAME)
+    elif (character == 'q'):
+        winsound.PlaySound('audio_files/q_sound.wav',winsound.SND_FILENAME)
+    elif (character == 'r'):
+        winsound.PlaySound('audio_files/r_sound.wav',winsound.SND_FILENAME)
+    elif (character == 's'):
+        winsound.PlaySound('audio_files/s_sound.wav',winsound.SND_FILENAME)
+    elif (character == 't'):
+        winsound.PlaySound('audio_files/t_sound.wav',winsound.SND_FILENAME)
+    elif (character == 'u'):
+        winsound.PlaySound('audio_files/u_sound.wav',winsound.SND_FILENAME)
+    elif (character == 'v'):
+        winsound.PlaySound('audio_files/v_sound.wav',winsound.SND_FILENAME)
+    elif (character == 'w'):
+        winsound.PlaySound('audio_files/w_sound.wav',winsound.SND_FILENAME)
+    elif (character == 'x'):
+        winsound.PlaySound('audio_files/x_sound.wav',winsound.SND_FILENAME)
+    elif (character == 'y'):
+        winsound.PlaySound('audio_files/y_sound.wav',winsound.SND_FILENAME)
+    elif (character == 'z'):
+        winsound.PlaySound('audio_files/z_sound.wav',winsound.SND_FILENAME)
+    elif (character == '{}'):
+        winsound.PlaySound('audio_files/space_sound.wav',winsound.SND_FILENAME)
+    elif (character == '<'):
+        winsound.PlaySound('audio_files/undo_sound.wav',winsound.SND_FILENAME)
+
 class Drawable(object):
     ''' Interface for objects that can be drawn on a tkinter Canvas '''
     def draw(self, canvas):
@@ -500,11 +562,15 @@ class AudioKey(Text):
         self.selected = False
         self.next_page = False
         self.next_page_score = 0
+        self.time_elapsed = 0
         self._centroid_x, self._centroid_y = (0,0) # x,y selection centroid
         self.last_pos = None
         self.phase1 = False
         self.phase2 = False
         self.preselect = False
+        self.pre_next_page = False
+        self.spoken = False
+        self.time_off_screen = 0
 
         self.point_history = []
 
@@ -526,6 +592,16 @@ class AudioKey(Text):
         super(AudioKey, self).delete(canvas)
         canvas.delete(self._circle_handle)
 
+    def reset_vars(self):
+        self.phase1 = False
+        self.phase2 = False
+        self.preselect = False
+        self.spoken = False
+        self.time_off_screen = 0
+        self.time_elapsed = 0
+        self.selected = False
+        self.next_page = False
+
     def update(self, canvas, pos):
         ''' 
         Cycles through letters at rate specified by settings.selection_delay. Checks if on-screen vision has been recorded.
@@ -538,44 +614,56 @@ class AudioKey(Text):
             self.point_history = [pos] + self.point_history[0:len(self.point_history)-1]
         
         super(AudioKey, self).update(canvas, (x,y))
-        if len(timelog) >= 2:
-            # always keeping track of time
-            self.next_page_score += timelog[-1][1]-timelog[-2][1]
-
-        # To be selected, we need an OFF-ON-OFF pattern
-        #if (self.phase1 == False and self.last_pos == pos and self.last_pos != None):
-        if (self.phase1 == False and len(self.point_history) == self.point_history_length):
-            self.phase1 = True
-            for val in self.point_history:
-                if val != pos:
-                    self.phase1 = False
-                    break
-            # No motion phase observed
-        elif (self.phase1 == True and self.last_pos != pos):
-            # Motion observed after phase 1 of no motion
-            self.phase2 = True
-            self.preselect = True
-        '''elif (self.phase2 == True and self.last_pos == pos):
-            # No motion observed after phase 2 stage of motion
-            self.preselect = True'''
-
-        if self.next_page_score > settings.selection_delay + .5: #.5 is time to play audio file
-            # if preselect is true after delay time, select key. Otherwise, move to next page
+        if len(timelog) >= 2 and pos != self.last_pos:
+            if (settings.only_open == True):
+                if (pos != self.last_pos):
+                    # only track time when eyes are open or on screen
+                    self.time_elapsed += timelog[-1][1]-timelog[-2][1]
+            else:
+                # always track time
+                self.time_elapsed += timelog[-1][1]-timelog[-2][1]
+    
+        # Evaluation phase. Determine if there was a blink.
+        if self.time_elapsed > settings.pre_audio_buffer + settings.selection_delay:
+            # if preselect is false (no blink), prepare to advance page
             if (self.preselect == False):
-                self.selected = False
                 self.next_page = True
+                self.selected = False
             else:
                 self.selected = True
-                self.next_page = False
 
-            self.next_page_score = 0
-            # reset motion tracking variables
+            # reset variables for next key
             self.phase1 = False
             self.phase2 = False
             self.preselect = False
+            self.time_elapsed = 0
+
+        # Data collection phase. Speak option and monitor for blink.
+        elif (self.time_elapsed > settings.pre_audio_buffer):
+            # only speak once
+            if (self.spoken == False):
+                thread.start_new_thread(speak_character, (self.text,))
+                self.spoken = True
+
+            # blink select detection
+            if (self.phase1 == False and len(self.point_history) == self.point_history_length):
+                self.phase1 = True
+                for val in self.point_history:
+                    if val != pos:
+                        self.phase1 = False
+                        break
+            # No motion phase observed
+            elif (self.phase1 == True and self.last_pos != pos):
+                # Motion observed after phase 1 of no motion
+                self.phase2 = True
+                self.preselect = True
+
+        # Null phase. Resets variables for blink detection and evaluation.
         else:
+            self.spoken = False
             self.selected = False
             self.next_page = False
+
         self.last_pos = pos
 
 class OnscreenKeyboard(Drawable):
@@ -810,8 +898,6 @@ class OnscreenKeyboard(Drawable):
                           ['{}:<','<:.','#'], #32
                           ['{}', '<','#'], #33
                           ['<','.','#'] #34
-                
-                
                 ]    
 
 
@@ -913,69 +999,6 @@ class OnscreenKeyboard(Drawable):
             self.collect_data(canvas)
         elif (self.calibrating == True):
             self.calibrate(canvas)
-
-    def speak_character(self, character):
-        if (character == 'a:m'):
-            winsound.PlaySound('audio_files/a_to_m_sound.wav',winsound.SND_FILENAME)
-        elif (character == 'n:z'):
-            winsound.PlaySound('audio_files/n_to_z_sound.wav',winsound.SND_FILENAME)
-        elif (character == 'a'):
-            winsound.PlaySound('audio_files/a_sound.wav',winsound.SND_FILENAME)
-        elif (character == 'b'):
-            winsound.PlaySound('audio_files/b_sound.wav',winsound.SND_FILENAME)
-        elif (character == 'c'):
-            winsound.PlaySound('audio_files/c_sound.wav',winsound.SND_FILENAME)
-        elif (character == 'd'):
-            winsound.PlaySound('audio_files/d_sound.wav',winsound.SND_FILENAME)
-        elif (character == 'e'):
-            winsound.PlaySound('audio_files/e_sound.wav',winsound.SND_FILENAME)
-        elif (character == 'f'):
-            winsound.PlaySound('audio_files/f_sound.wav',winsound.SND_FILENAME)
-        elif (character == 'g'):
-            winsound.PlaySound('audio_files/g_sound.wav',winsound.SND_FILENAME)
-        elif (character == 'h'):
-            winsound.PlaySound('audio_files/h_sound.wav',winsound.SND_FILENAME)
-        elif (character == 'i'):
-            winsound.PlaySound('audio_files/i_sound.wav',winsound.SND_FILENAME)
-        elif (character == 'j'):
-            winsound.PlaySound('audio_files/j_sound.wav',winsound.SND_FILENAME)
-        elif (character == 'k'):
-            winsound.PlaySound('audio_files/k_sound.wav',winsound.SND_FILENAME)
-        elif (character == 'l'):
-            winsound.PlaySound('audio_files/l_sound.wav',winsound.SND_FILENAME)
-        elif (character == 'm'):
-            winsound.PlaySound('audio_files/m_sound.wav',winsound.SND_FILENAME)
-        elif (character == 'n'):
-            winsound.PlaySound('audio_files/n_sound.wav',winsound.SND_FILENAME)
-        elif (character == 'o'):
-            winsound.PlaySound('audio_files/o_sound.wav',winsound.SND_FILENAME)
-        elif (character == 'p'):
-            winsound.PlaySound('audio_files/p_sound.wav',winsound.SND_FILENAME)
-        elif (character == 'q'):
-            winsound.PlaySound('audio_files/q_sound.wav',winsound.SND_FILENAME)
-        elif (character == 'r'):
-            winsound.PlaySound('audio_files/r_sound.wav',winsound.SND_FILENAME)
-        elif (character == 's'):
-            winsound.PlaySound('audio_files/s_sound.wav',winsound.SND_FILENAME)
-        elif (character == 't'):
-            winsound.PlaySound('audio_files/t_sound.wav',winsound.SND_FILENAME)
-        elif (character == 'u'):
-            winsound.PlaySound('audio_files/u_sound.wav',winsound.SND_FILENAME)
-        elif (character == 'v'):
-            winsound.PlaySound('audio_files/v_sound.wav',winsound.SND_FILENAME)
-        elif (character == 'w'):
-            winsound.PlaySound('audio_files/w_sound.wav',winsound.SND_FILENAME)
-        elif (character == 'x'):
-            winsound.PlaySound('audio_files/x_sound.wav',winsound.SND_FILENAME)
-        elif (character == 'y'):
-            winsound.PlaySound('audio_files/y_sound.wav',winsound.SND_FILENAME)
-        elif (character == 'z'):
-            winsound.PlaySound('audio_files/z_sound.wav',winsound.SND_FILENAME)
-        elif (character == '{}'):
-            winsound.PlaySound('audio_files/space_sound.wav',winsound.SND_FILENAME)
-        elif (character == '<'):
-            winsound.PlaySound('audio_files/undo_sound.wav',winsound.SND_FILENAME)
-
 
     def delete(self, canvas):
         for key in self.keys: key.delete(canvas)
@@ -1179,9 +1202,8 @@ class OnscreenKeyboard(Drawable):
             key.clear()
             key.write(choices[i])
             i = (i+1) % len(choices)
-            if (settings.kb_version == 7):
-                thread.start_new_thread (self.speak_character, (choices[i],))
-                #self.speak_character(choices[i])
+            '''if (settings.kb_version == 7):
+                thread.start_new_thread (self.speak_character, (choices[i],))'''
 
     def gen_svm_model(self):
         df = pd.read_csv('../data/eye_tests/combined_calibration_log.csv',sep=',')

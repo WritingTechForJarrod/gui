@@ -26,6 +26,9 @@ SVM_window_size = 10
 SVM_model_type = 1 # 1 = linear, 2 = rbf, 3 = poly, 4 = Linear2
 
 selection_delay = 1 # seconds
+pre_audio_buffer = 1 # seconds
+off_screen_threshold = selection_delay + 1 # seconds
+only_open = True # when true, only count on-screen time.
 if selection_allowed == 1:
 	letter_selection_radius = 110
 else:
