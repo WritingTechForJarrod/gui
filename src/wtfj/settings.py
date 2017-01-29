@@ -29,7 +29,10 @@ selection_mechanism = 'blink' # valid entries are 'blink' or 'time' (only enable
 selection_delay = 1 # seconds
 pre_audio_buffer = 1 # seconds
 off_screen_threshold = selection_delay + 1 # seconds
-only_open = True # when true, only count on-screen time.
+only_open = True # when true, only count on-screen time
+border_filter_offset = 30 # Defines valid places on screen. Offset is # of pixels in from physical screen edges (0 valid).
+border_filter_enabled = True # When enabled, filters off screen points, otherwise off screen counted as blink
+
 if selection_allowed == 1:
 	letter_selection_radius = 110
 else:

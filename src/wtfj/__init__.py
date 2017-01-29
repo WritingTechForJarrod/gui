@@ -610,6 +610,8 @@ class AudioKey(Text):
         self.pre_next_page = False
         self.spoken = False
         self.time_off_screen = 0
+        self.screen_w = None
+        self.screen_h = None
 
         self.point_history = []
 
@@ -625,6 +627,8 @@ class AudioKey(Text):
         r = settings.letter_selection_radius
         sx,sy = (self._centroid_x,self._centroid_y)
         self._circle_handle = canvas.create_oval(sx-r, sy-r, sx+r, sy+r, fill='', outline="", tags = "key_tag")
+        self.screen_w = int(canvas.cget("width"))
+        self.screen_h = int(canvas.cget("height"))
         super(AudioKey,self).draw(canvas)
 
     def delete(self, canvas):
@@ -647,61 +651,65 @@ class AudioKey(Text):
         '''
         x,y = pos
 
-        if(len(self.point_history) < self.point_history_length):
-            self.point_history = [pos] + self.point_history
-        else:
-            self.point_history = [pos] + self.point_history[0:len(self.point_history)-1]
-        
-        super(AudioKey, self).update(canvas, (x,y))
-        if len(timelog) >= 2 and pos != self.last_pos:
-            if (settings.only_open == True):
-                if (pos != self.last_pos):
-                    # only track time when eyes are open or on screen
+        if ((not settings.border_filter_enabled) or (x > settings.border_filter_offset and x < self.screen_w - settings.border_filter_offset
+            and y > settings.border_filter_offset and y < self.screen_h - settings.border_filter_offset)):
+            if(len(self.point_history) < self.point_history_length):
+                self.point_history = [pos] + self.point_history
+            else:
+                self.point_history = [pos] + self.point_history[0:len(self.point_history)-1]
+            
+            super(AudioKey, self).update(canvas, (x,y))
+            if len(timelog) >= 2 and pos != self.last_pos:
+                if (settings.only_open == True):
+                    if (pos != self.last_pos):
+                        # only track time when eyes are open or on screen
+                        self.time_elapsed += timelog[-1][1]-timelog[-2][1]
+                else:
+                    # always track time
                     self.time_elapsed += timelog[-1][1]-timelog[-2][1]
+        
+            # Evaluation phase. Determine if there was a blink.
+            if self.time_elapsed > settings.pre_audio_buffer + settings.selection_delay:
+                # if preselect is false (no blink), prepare to advance page
+                if (self.preselect == False):
+                    self.next_page = True
+                    self.selected = False
+                else:
+                    self.selected = True
+
+                # reset variables for next key
+                self.phase1 = False
+                self.phase2 = False
+                self.preselect = False
+                self.time_elapsed = 0
+
+            # Data collection phase. Speak option and monitor for blink.
+            elif (self.time_elapsed > settings.pre_audio_buffer):
+                # only speak once
+                if (self.spoken == False):
+                    thread.start_new_thread(speak_character, (self.text,))
+                    self.spoken = True
+
+                # No motion check
+                if (self.phase1 == False and len(self.point_history) == self.point_history_length):
+                    self.time_off_screen += timelog[-1][1]-timelog[-2][1]
+                    self.phase1 = True
+                    for val in self.point_history:
+                        if val != pos:
+                            self.phase1 = False
+                            break
+                # Final motion check
+                elif (self.phase1 == True and self.last_pos != pos):
+                    self.phase2 = True
+                    self.preselect = True
+
+            # Null phase. Resets variables for blink detection and evaluation.
             else:
-                # always track time
-                self.time_elapsed += timelog[-1][1]-timelog[-2][1]
-    
-        # Evaluation phase. Determine if there was a blink.
-        if self.time_elapsed > settings.pre_audio_buffer + settings.selection_delay:
-            # if preselect is false (no blink), prepare to advance page
-            if (self.preselect == False):
-                self.next_page = True
+                self.spoken = False
                 self.selected = False
-            else:
-                self.selected = True
-
-            # reset variables for next key
-            self.phase1 = False
-            self.phase2 = False
-            self.preselect = False
-            self.time_elapsed = 0
-
-        # Data collection phase. Speak option and monitor for blink.
-        elif (self.time_elapsed > settings.pre_audio_buffer):
-            # only speak once
-            if (self.spoken == False):
-                thread.start_new_thread(speak_character, (self.text,))
-                self.spoken = True
-
-            # No motion check
-            if (self.phase1 == False and len(self.point_history) == self.point_history_length):
-                self.time_off_screen += timelog[-1][1]-timelog[-2][1]
-                self.phase1 = True
-                for val in self.point_history:
-                    if val != pos:
-                        self.phase1 = False
-                        break
-            # Final motion check
-            elif (self.phase1 == True and self.last_pos != pos):
-                self.phase2 = True
-                self.preselect = True
-
-        # Null phase. Resets variables for blink detection and evaluation.
+                self.next_page = False
         else:
-            self.spoken = False
-            self.selected = False
-            self.next_page = False
+            self.reset_vars()
 
         self.last_pos = pos
 
