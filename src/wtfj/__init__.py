@@ -12,9 +12,13 @@ import thread
 from predictionary import Predictionary
 from filters import *
 from decorators import *
-from sklearn import svm, datasets
-import pandas as pd
-from sklearn.preprocessing import StandardScaler
+try:
+    from sklearn import svm, datasets
+    import pandas as pd
+    from sklearn.preprocessing import StandardScaler
+    import numpy as np
+except ImportError:
+    logging.warning('Machine learning imports failed in wtf/init.pyb')
 import numpy as np
 from collections import Counter
 
@@ -36,58 +40,8 @@ def speak_character(character):
         winsound.PlaySound('audio_files/a_to_m_sound.wav',winsound.SND_FILENAME)
     elif (character == 'n:z'):
         winsound.PlaySound('audio_files/n_to_z_sound.wav',winsound.SND_FILENAME)
-    elif (character == 'a'):
-        winsound.PlaySound('audio_files/a_sound.wav',winsound.SND_FILENAME)
-    elif (character == 'b'):
-        winsound.PlaySound('audio_files/b_sound.wav',winsound.SND_FILENAME)
-    elif (character == 'c'):
-        winsound.PlaySound('audio_files/c_sound.wav',winsound.SND_FILENAME)
-    elif (character == 'd'):
-        winsound.PlaySound('audio_files/d_sound.wav',winsound.SND_FILENAME)
-    elif (character == 'e'):
-        winsound.PlaySound('audio_files/e_sound.wav',winsound.SND_FILENAME)
-    elif (character == 'f'):
-        winsound.PlaySound('audio_files/f_sound.wav',winsound.SND_FILENAME)
-    elif (character == 'g'):
-        winsound.PlaySound('audio_files/g_sound.wav',winsound.SND_FILENAME)
-    elif (character == 'h'):
-        winsound.PlaySound('audio_files/h_sound.wav',winsound.SND_FILENAME)
-    elif (character == 'i'):
-        winsound.PlaySound('audio_files/i_sound.wav',winsound.SND_FILENAME)
-    elif (character == 'j'):
-        winsound.PlaySound('audio_files/j_sound.wav',winsound.SND_FILENAME)
-    elif (character == 'k'):
-        winsound.PlaySound('audio_files/k_sound.wav',winsound.SND_FILENAME)
-    elif (character == 'l'):
-        winsound.PlaySound('audio_files/l_sound.wav',winsound.SND_FILENAME)
-    elif (character == 'm'):
-        winsound.PlaySound('audio_files/m_sound.wav',winsound.SND_FILENAME)
-    elif (character == 'n'):
-        winsound.PlaySound('audio_files/n_sound.wav',winsound.SND_FILENAME)
-    elif (character == 'o'):
-        winsound.PlaySound('audio_files/o_sound.wav',winsound.SND_FILENAME)
-    elif (character == 'p'):
-        winsound.PlaySound('audio_files/p_sound.wav',winsound.SND_FILENAME)
-    elif (character == 'q'):
-        winsound.PlaySound('audio_files/q_sound.wav',winsound.SND_FILENAME)
-    elif (character == 'r'):
-        winsound.PlaySound('audio_files/r_sound.wav',winsound.SND_FILENAME)
-    elif (character == 's'):
-        winsound.PlaySound('audio_files/s_sound.wav',winsound.SND_FILENAME)
-    elif (character == 't'):
-        winsound.PlaySound('audio_files/t_sound.wav',winsound.SND_FILENAME)
-    elif (character == 'u'):
-        winsound.PlaySound('audio_files/u_sound.wav',winsound.SND_FILENAME)
-    elif (character == 'v'):
-        winsound.PlaySound('audio_files/v_sound.wav',winsound.SND_FILENAME)
-    elif (character == 'w'):
-        winsound.PlaySound('audio_files/w_sound.wav',winsound.SND_FILENAME)
-    elif (character == 'x'):
-        winsound.PlaySound('audio_files/x_sound.wav',winsound.SND_FILENAME)
-    elif (character == 'y'):
-        winsound.PlaySound('audio_files/y_sound.wav',winsound.SND_FILENAME)
-    elif (character == 'z'):
-        winsound.PlaySound('audio_files/z_sound.wav',winsound.SND_FILENAME)
+    elif character in list('abcdefghijklmnopqrstuvwxyz'):
+        winsound.PlaySound('audio_files/'+str(character)+'_sound.wav',winsound.SND_FILENAME)
     elif (character == '{}'):
         winsound.PlaySound('audio_files/space_sound.wav',winsound.SND_FILENAME)
     elif (character == '<'):
@@ -434,6 +388,7 @@ class Three_Key(Text):
             self.selected = False
         r = int((self.selection_score*255) / settings.selection_delay)
         canvas.itemconfigure(self.handle, fill=make_color(r,0,0))
+
 class SingleKeyTimeSelectionKey(Text):
     ''' Dynamic on-screen key. Designed for a single key layout. Uses time-based selection.
     Selection region decoupled from character display'''
