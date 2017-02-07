@@ -35,6 +35,7 @@ class Application(Frame):
 		self.canvas.pack()
 		self.console = Text(sz[0]/2,sz[1]/2,console_font)
 		self.console.draw(self.canvas)
+		self.console.write('Connecting...')
 		self.frames_drawn = 0
 
 	def _draw_periodic(self):
@@ -82,6 +83,11 @@ if __name__ == '__main__':
 	logging.basicConfig(level=logging.DEBUG)
 	serverlog = logging.getLogger("server")
 	applog = logging.getLogger("app")
+
+	import os
+	import subprocess  
+	os.chdir('C:/Users/Maxim/Documents/GitHub/writingtechforjarrod/vision/bin/')
+	subprocess.Popen([r'facial_detection.exe'])  
 
 	root = Tk()
 	root.attributes("-fullscreen", True)
