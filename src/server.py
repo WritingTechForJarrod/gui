@@ -50,7 +50,14 @@ class Application(Frame):
 				parts = message.split(':')
 				serverlog.debug("%s" % int(parts[1]))
 				self.console.clear()
-				self.console.write(str(int(parts[1])))
+				if int(parts[1]) == 0:
+					self.console.write('No input')
+				elif int(parts[1]) == 1:
+					self.console.write('Eyebrow')
+				elif int(parts[1]) == 2:
+					self.console.write('Mouth')
+				elif int(parts[1]) == 3:
+					self.console.write('Both')
 			else:
 				self.console.write('Drawing frame # '+str(self.frames_drawn))
 			self.console.update(self.canvas,(0,0))
@@ -77,9 +84,9 @@ if __name__ == '__main__':
 	applog = logging.getLogger("app")
 
 	root = Tk()
-	#root.attributes("-fullscreen", True)
+	root.attributes("-fullscreen", True)
 	console_font = font.Font(family='Helvetica',size=settings.console_font_size, weight='bold')
-	app = Application(master=root,sz=(400,300))
+	app = Application(master=root,sz=(1080,720))
 
 	alive = True
 	serverlog.debug("Starting server...")
