@@ -39,21 +39,25 @@ class Application(Frame):
 
 	def _draw_periodic(self):
 		self.frames_drawn += 1
-		message = self.socket.recv()
-		ret = "ack"
-		serverlog.debug("Received request: %s" % message)
-		if "quit" in message:
-			serverlog.debug('Quitting server...')
-			quit()
-		elif "#face" in message:
-			parts = message.split(':')
-			serverlog.debug("%s" % int(parts[1]))
-			self.console.clear()
-			self.console.write(str(int(parts[1])))
-		else:
-			self.console.write('Drawing frame # '+str(self.frames_drawn))
-		self.console.update(self.canvas,(0,0))
-		self.socket.send(bytes(ret))
+		try:
+			message = self.socket.recv(zmq.DONTWAIT)
+			ret = "ack"
+			serverlog.debug("Received request: %s" % message)
+			if "quit" in message:
+				serverlog.debug('Quitting server...')
+				quit()
+			elif "#face" in message:
+				parts = message.split(':')
+				serverlog.debug("%s" % int(parts[1]))
+				self.console.clear()
+				self.console.write(str(int(parts[1])))
+			else:
+				self.console.write('Drawing frame # '+str(self.frames_drawn))
+			self.console.update(self.canvas,(0,0))
+			self.socket.send(bytes(ret))
+		except zmq.Again:
+			pass
+			
 		self.canvas.after(50, self._draw_periodic)
 
 	def quit(self):
