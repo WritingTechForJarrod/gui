@@ -977,7 +977,8 @@ class OnscreenKeyboard(Drawable):
             i = 0
             offset = 225 # offset into screen from edge
             for key in self.keys:
-                x,y = (i*self.w + offset - 2*offset*i, i*self.h + offset//3 - 2*offset*i//3)
+                #x,y = (i*self.w + offset - 2*offset*i, i*self.h + offset//3 - 2*offset*i//3)
+                x,y = (i*self.w + offset - 2*offset*i, self.h//2)
                 key.x,key.y = (x,y)
                 key.set_centroid((key.x,key.y))
                 key.draw(canvas)
